@@ -16,7 +16,7 @@ export function Header() {
   return (
     <header className="h-14 border-b bg-card px-4 flex items-center justify-between">
       <div className="flex items-center space-x-4">
-        <h1 className="text-lg font-semibold">QRCode Toolbox</h1>
+        <h1 className="text-lg font-semibold">Toolbox</h1>
       </div>
       
       <div className="flex items-center space-x-4">

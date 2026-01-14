@@ -453,7 +453,7 @@ function GenerateMode() {
       </div>
 
       {/* 右侧面板：预览 */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {currentMode === 'single' ? (
           <QRCodePreview config={currentConfig} />
         ) : (
@@ -819,7 +819,7 @@ function StylePanelComponent({ config, onChange }: { config: any; onChange: (con
         </div>
         <Slider
           value={[config.width]}
-          min={128}
+          min={256}
           max={2048}
           step={64}
           onValueChange={([value]) => onChange({ width: value })}

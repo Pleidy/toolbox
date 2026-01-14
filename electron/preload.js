@@ -1,5 +1,5 @@
-// Preload script for Electron
-import { contextBridge } from 'electron';
+// Preload script for Electron (CommonJS format)
+const { contextBridge } = require('electron');
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object

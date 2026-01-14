@@ -8,6 +8,9 @@ interface QRCodePreviewProps {
   className?: string;
 }
 
+// 二维码最小尺寸
+const MIN_QR_SIZE = 256;
+
 export function QRCodePreview({ config, className }: QRCodePreviewProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -31,6 +34,9 @@ export function QRCodePreview({ config, className }: QRCodePreviewProps) {
     generate();
   }, [config]);
 
+  // 计算实际显示尺寸（确保不小于最小值）
+  const displaySize = Math.max(config.width, MIN_QR_SIZE);
+
   if (error) {
     return (
       <Card className={className}>
@@ -46,20 +52,37 @@ export function QRCodePreview({ config, className }: QRCodePreviewProps) {
       <CardHeader>
         <CardTitle>预览</CardTitle>
       </CardHeader>
-      <CardContent className="flex items-center justify-center min-h-[300px]">
+      <CardContent className="flex items-center justify-center min-h-[500px]">
         {loading ? (
           <div className="animate-pulse flex flex-col items-center">
-            <div className="h-64 w-64 bg-muted rounded-lg" />
+            <div className="h-80 w-80 bg-muted rounded-lg" />
             <p className="mt-4 text-muted-foreground">生成中...</p>
           </div>
         ) : qrDataUrl ? (
-          <div className="flex flex-col items-center space-y-4">
-            <img
-              src={qrDataUrl}
-              alt="QR Code"
-              className="max-w-full h-auto rounded-lg shadow-lg"
-              style={{ maxHeight: '400px' }}
-            />
+          <div className="flex flex-col items-center space-y-4 w-full">
+            {/* 固定尺寸容器，确保二维码不会小于最小尺寸 */}
+            <div 
+              className="rounded-lg shadow-lg overflow-hidden flex-shrink-0"
+              style={{
+                width: `${displaySize}px`,
+                height: `${displaySize}px`,
+                minWidth: `${MIN_QR_SIZE}px`,
+                minHeight: `${MIN_QR_SIZE}px`,
+                backgroundColor: config.backgroundColor
+              }}
+            >
+              <img
+                src={qrDataUrl}
+                alt="QR Code"
+                width={displaySize}
+                height={displaySize}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain'
+                }}
+              />
+            </div>
             <p className="text-sm text-muted-foreground">
               尺寸: {config.width}x{config.width}px
             </p>

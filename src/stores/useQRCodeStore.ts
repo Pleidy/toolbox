@@ -4,7 +4,7 @@ import { generateId } from '../lib/utils';
 
 const defaultSingleConfig: QRCodeConfig = {
   content: 'https://example.com',
-  width: 256,
+  width: 400,
   margin: 2,
   errorCorrectionLevel: 'M',
   foregroundColor: '#000000',

@@ -10,7 +10,7 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    title: 'QRCode Toolbox',
+    title: 'Toolbox',
     icon: path.join(__dirname, 'public/vite.svg'),
     webPreferences: {
       nodeIntegration: false,
@@ -92,8 +92,8 @@ function createWindow() {
           click: () => {
             dialog.showMessageBox(win, {
               type: 'info',
-              title: '关于 QRCode Toolbox',
-              message: 'QRCode Toolbox',
+              title: '关于 Toolbox',
+              message: 'Toolbox',
               detail: '版本 1.0.0\n\n一个功能强大的二维码工具，支持生成、解码、批量处理等功能。'
             });
           }
