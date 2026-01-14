@@ -6,7 +6,7 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && node fix-paths.js",
+    "build": "tsc && vite build",
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "NODE_ENV=development electron .",

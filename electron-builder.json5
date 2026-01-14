@@ -1,0 +1,40 @@
+{
+  "appId": "com.qrcode-toolbox.app",
+  "productName": "QRCode Toolbox",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "public/**/*",
+    "package.json"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "public/vite.svg",
+    "artifactName": "${productName}-${version}-setup.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "QRCode Toolbox"
+  },
+  "mac": {
+    "target": "dmg",
+    "icon": "public/vite.svg"
+  },
+  "linux": {
+    "target": "AppImage",
+    "icon": "public/vite.svg"
+  }
+}
