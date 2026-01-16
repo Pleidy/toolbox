@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { QRCodeConfig } from '@/types';
 import { generateQRCode, configToOptions } from '@/lib/qrcode';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
+import { Card, CardContent } from '../ui/Card';
 
 interface QRCodePreviewProps {
   config: QRCodeConfig;
@@ -74,10 +74,7 @@ export function QRCodePreview({ config, className }: QRCodePreviewProps) {
 
   return (
     <Card className={className}>
-      <CardHeader>
-        <CardTitle>预览</CardTitle>
-      </CardHeader>
-      <CardContent className="flex items-center justify-center min-h-[500px]">
+      <CardContent className="flex items-center justify-center min-h-[500px] p-4">
         {loading ? (
           <div className="animate-pulse flex flex-col items-center">
             <div className="h-80 w-80 bg-muted rounded-lg" />

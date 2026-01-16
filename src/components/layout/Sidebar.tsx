@@ -1,6 +1,8 @@
-import { QrCode, Settings, LayoutGrid, FileJson } from 'lucide-react';
+import { QrCode, Settings, LayoutGrid, FileJson, Sun, Moon } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { Switch } from '../ui/Switch';
 import { useAppStore } from '@/stores';
+import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
@@ -9,7 +11,14 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
-  const { sidebarOpen } = useAppStore();
+  const { sidebarOpen, theme } = useAppStore();
+  const { setTheme: setNextTheme } = useTheme();
+
+  const handleThemeChange = (checked: boolean) => {
+    const newTheme = checked ? 'dark' : 'light';
+    useAppStore.getState().setTheme(newTheme);
+    setNextTheme(newTheme);
+  };
 
   const tools = [
     { id: 'qrcode', name: '二维码生成', icon: QrCode },
@@ -25,7 +34,7 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
       )}
     >
       <div className="p-4 border-b">
-        <h2 className="font-semibold text-lg">工具箱</h2>
+        <h2 className="font-semibold text-lg">Toolbox</h2>
       </div>
       
       <nav className="flex-1 p-4 space-y-2">
@@ -45,7 +54,17 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
         })}
       </nav>
       
-      <div className="p-4 border-t">
+      <div className="p-4 border-t space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Sun className="h-4 w-4" />
+            <Switch
+              checked={theme === 'dark'}
+              onCheckedChange={handleThemeChange}
+            />
+            <Moon className="h-4 w-4" />
+          </div>
+        </div>
         <Button variant="ghost" className="w-full justify-start">
           <Settings className="mr-2 h-4 w-4" />
           设置

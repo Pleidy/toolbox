@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
+import { Card, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { QRCodeConfig } from '@/types';
 import { generateQRCode, configToOptions } from '@/lib/qrcode';
@@ -85,10 +85,7 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
   if (batchConfig.data.length === 0 && previews.length === 0) {
     return (
       <Card className="h-full">
-        <CardHeader className="py-3 px-4">
-          <CardTitle className="text-base">预览</CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center h-[calc(100%-52px)]">
+        <CardContent className="flex items-center justify-center h-full">
           <p className="text-muted-foreground text-sm">
             请在左侧输入要生成二维码的内容
           </p>
@@ -99,31 +96,33 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="flex flex-row items-center justify-between py-2 px-3">
-        <CardTitle className="text-sm">
-          预览 ({batchConfig.data.length})
-        </CardTitle>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={generating}
-          className="h-7 px-2"
-        >
-          {generating ? (
-            <>
-              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              <span className="text-xs">生成中... {Math.round(progress)}%</span>
-            </>
-          ) : (
-            <>
-              <RefreshCw className="mr-1 h-3 w-3" />
-              <span className="text-xs">刷新</span>
-            </>
-          )}
-        </Button>
-      </CardHeader>
       <CardContent className="flex-1 flex flex-col overflow-hidden p-3">
+        {/* 工具栏：刷新按钮和数量 */}
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm text-muted-foreground">
+            {batchConfig.data.length} 个二维码
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={generating}
+            className="h-7 px-2"
+          >
+            {generating ? (
+              <>
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                <span className="text-xs">生成中... {Math.round(progress)}%</span>
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-1 h-3 w-3" />
+                <span className="text-xs">刷新</span>
+              </>
+            )}
+          </Button>
+        </div>
+
         {generating && (
           <div className="mb-1 px-1">
             <div className="w-full bg-secondary rounded-full h-1">
