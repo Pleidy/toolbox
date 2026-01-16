@@ -86,6 +86,27 @@ export function JsonFormatter() {
 
   return (
     <div className="flex flex-col h-full">
+      <style>{`
+        /* 全局覆盖所有可能的斜体样式 */
+        .react-json-view,
+        .react-json-view *,
+        .react-json-view *::before,
+        .react-json-view *::after {
+          font-style: normal !important;
+          font-style: normal !important;
+          font-style: normal !important;
+        }
+        
+        /* 强制覆盖所有字体样式 */
+        .react-json-view span {
+          font-style: normal !important;
+        }
+        
+        /* 覆盖字符串和值 */
+        [class*="react-json-view"] span {
+          font-style: normal !important;
+        }
+      `}</style>
       <div className="flex-1 flex gap-2 p-1 overflow-hidden">
         <Card className="flex-1 flex flex-col min-w-0">
           <CardHeader className="flex-shrink-0 py-1 px-2">
@@ -131,7 +152,8 @@ export function JsonFormatter() {
             {parseResult.success ? (
               <div style={{ fontSize: activeTab.fontSize }}>
                 <JsonView value={parseResult.data as object} collapsed={activeTab.collapsed}
-                  style={{ fontSize: activeTab.fontSize + "px", lineHeight: "1.4" } as React.CSSProperties} />
+                  displayDataTypes={false}
+                  style={{ fontSize: activeTab.fontSize + "px", lineHeight: "1.4", "--rjv-key-string": "normal", "--rjv-quotes": "normal" } as React.CSSProperties} />
               </div>
             ) : parseResult.error ? (
               <div className="text-destructive text-xs p-2">Error: {parseResult.error}</div>
