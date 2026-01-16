@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { QRCodeConfig } from '@/types';
 import { generateQRCode, configToOptions } from '@/lib/qrcode';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
@@ -15,23 +15,48 @@ export function QRCodePreview({ config, className }: QRCodePreviewProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const generationIdRef = useRef(0);
 
   useEffect(() => {
+    const currentGenerationId = ++generationIdRef.current;
+    let isMounted = true;
+
     const generate = async () => {
+      // 如果内容为空，跳过生成
+      if (!config.content || config.content.trim() === '') {
+        if (isMounted) {
+          setQrDataUrl('');
+          setLoading(false);
+        }
+        return;
+      }
+
       setLoading(true);
       setError('');
       try {
         const dataUrl = await generateQRCode(config.content, configToOptions(config));
-        setQrDataUrl(dataUrl);
+        if (isMounted && currentGenerationId === generationIdRef.current) {
+          setQrDataUrl(dataUrl);
+        }
       } catch (err) {
-        setError('生成二维码失败');
-        console.error(err);
+        if (isMounted && currentGenerationId === generationIdRef.current) {
+          setError('生成二维码失败');
+          console.error(err);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted && currentGenerationId === generationIdRef.current) {
+          setLoading(false);
+        }
       }
     };
 
-    generate();
+    // 添加防抖，避免快速输入时的竞态条件
+    const timer = setTimeout(generate, 150);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, [config]);
 
   // 计算实际显示尺寸（确保不小于最小值）

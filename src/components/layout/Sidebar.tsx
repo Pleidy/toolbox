@@ -1,4 +1,4 @@
-import { QrCode, Settings, LayoutGrid } from 'lucide-react';
+import { QrCode, Settings, LayoutGrid, FileJson } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useAppStore } from '@/stores';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,7 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
 
   const tools = [
     { id: 'qrcode', name: '二维码生成', icon: QrCode },
+    { id: 'json', name: 'JSON 格式化', icon: FileJson },
     { id: 'tools', name: '更多工具', icon: LayoutGrid },
   ];
 

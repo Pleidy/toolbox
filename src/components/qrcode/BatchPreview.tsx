@@ -58,9 +58,16 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
   useEffect(() => {
     if (!initializedRef.current) {
       initializedRef.current = true;
+    }
+    generatePreviews();
+  }, [generatePreviews]);
+
+  // 监听数据变化，自动刷新预览
+  useEffect(() => {
+    if (initializedRef.current) {
       generatePreviews();
     }
-  }, [generatePreviews]);
+  }, [batchConfig.data.length]);
 
   // 刷新按钮
   const handleRefresh = () => {
