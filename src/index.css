@@ -75,3 +75,31 @@
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground/50;
 }
+
+/* JSON View 引号斜体修复 - 强制所有样式为正常字体 */
+.json-view-fix,
+.json-view-fix * {
+  font-style: normal !important;
+}
+
+/* 覆盖 react-json-view 库的所有斜体样式 */
+.react-json-view,
+.react-json-view * {
+  font-style: normal !important;
+}
+
+/* 具体覆盖所有可能的元素 */
+.react-json-view span,
+.react-json-view div {
+  font-style: normal !important;
+}
+
+/* 覆盖特定类名 */
+.react-json-view .rjv-value,
+.react-json-view .rjv-key,
+.react-json-view .rjv-string,
+.react-json-view .rjv-brackets,
+.react-json-view .rjv-punctuation,
+.react-json-view .rjv-delimiter {
+  font-style: normal !important;
+}

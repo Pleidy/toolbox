@@ -8,6 +8,7 @@
 !/storage/permissions
 /vendor
 .env
+.sisyphus
 .env.backup
 .env.production
 .phpunit.result.cache
