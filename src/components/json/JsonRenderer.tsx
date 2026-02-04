@@ -54,7 +54,7 @@ function generateLines(
   const indent = depth * 16;
   const isCollapsed = collapsedState[path] ?? false;
   const displayName = name !== undefined
-    ? <><span className="text-foreground">"</span><span className="text-sky-600 dark:text-sky-400">{String(name)}</span><span className="text-foreground">"</span><span className="text-foreground">: </span></>
+    ? <><span className="text-foreground">"</span><span className="text-black dark:text-foreground">{String(name)}</span><span className="text-foreground">"</span><span className="text-foreground">: </span></>
     : null;
   const comma = isLast ? "" : ",";
 
