@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Label } from '../ui/Label';
 import { Button } from '../ui/Button';
@@ -12,63 +12,46 @@ import { QRCodePreview } from './QRCodePreview';
 import { BatchPreview } from './BatchPreview';
 import { Tabs, TabsList, TabsTrigger } from '../ui/Tabs';
 
-// LocalStorage 键
-const STORAGE_KEY = 'qrcode-toolbox-last-content';
-
 export function QRCodeGenerator() {
   return <GenerateMode />;
 }
 
 function GenerateMode() {
-  const { singleConfig, setSingleConfig, batchConfig, setBatchConfig, addBatchItem, clearBatchItems } = useQRCodeStore();
+  // 从 store 读取所有持久化状态
+  const {
+    singleConfig, setSingleConfig,
+    batchConfig, setBatchConfig, addBatchItem, clearBatchItems,
+    inputText, setInputText,
+    autoMode, setAutoMode,
+    manualMode, setManualMode,
+    exportSettings, setExportSettings,
+    previewSettings, setPreviewSettings,
+  } = useQRCodeStore();
 
   // 从 localStorage 恢复上次的内容
-  const [inputText, setInputText] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved || 'https://example.com';
-    }
-    return 'https://example.com';
-  });
+  // 注意: inputText 现在从 store 的 persist 中恢复，不再需要手动 localStorage 读取
 
-  // 解析输入的内容列表
-  const [contentLines, setContentLines] = useState<string[]>([]);
+  // 解析输入的内容列表 (使用 useMemo 避免不必要的重新计算)
+  const contentLines = useMemo(() => {
+    return inputText
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+  }, [inputText]);
 
   // 自动检测模式
-  const [autoMode, setAutoMode] = useState(true);
   const [detectedMode, setDetectedMode] = useState<'single' | 'batch'>('single');
-  const [manualMode, setManualMode] = useState<'single' | 'batch'>('single');
 
-  // 导出设置
-  const [exportExpanded, setExportExpanded] = useState(false);
-  const [exportFormat, setExportFormat] = useState<'pdf' | 'multiple' | 'collage'>('pdf');
-  const [itemsPerPage, setItemsPerPage] = useState(12);
-  const [exportColumns, setExportColumns] = useState(3);
-
-  // 预览设置（仅批量模式）
-  const [previewColumns, setPreviewColumns] = useState(4);
-  const [previewSize, setPreviewSize] = useState(150);
-
-  // 样式设置展开状态
+  // 样式设置展开状态 (纯 UI 状态，不需要持久化)
   const [styleExpanded, setStyleExpanded] = useState(false);
 
   // 使用 ref 追踪上一次的输入，避免不必要的重新同步
   const prevInputTextRef = useRef<string>(inputText);
   const isInitialMountRef = useRef(true);
 
-  // 保存内容到 localStorage
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, inputText);
-  }, [inputText]);
-
   // 解析输入内容并同步到批量数据
   useEffect(() => {
-    const lines = inputText
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
-
-    setContentLines(lines);
+    const lines = contentLines;
 
     // 自动检测模式
     if (autoMode) {
@@ -92,7 +75,7 @@ function GenerateMode() {
         }
       }
     }
-  }, [inputText, autoMode, batchConfig.data, addBatchItem, clearBatchItems]);
+  }, [inputText, autoMode, batchConfig.data, addBatchItem, clearBatchItems, contentLines]);
 
   // 确定当前使用的模式
   const currentMode = autoMode ? detectedMode : manualMode;
@@ -109,9 +92,9 @@ function GenerateMode() {
     // 通过自定义事件触发导出
     const event = new CustomEvent('qrcode-export', {
       detail: {
-        format: exportFormat,
-        itemsPerPage,
-        columns: exportColumns,
+        format: exportSettings.format,
+        itemsPerPage: exportSettings.itemsPerPage,
+        columns: exportSettings.columns,
       }
     });
     window.dispatchEvent(event);
@@ -242,14 +225,14 @@ function GenerateMode() {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label className="text-xs">每行数量</Label>
-                  <span className="text-xs text-muted-foreground">{previewColumns} 个</span>
+                  <span className="text-xs text-muted-foreground">{previewSettings.columns} 个</span>
                 </div>
                 <Slider
-                  value={[previewColumns]}
+                  value={[previewSettings.columns]}
                   min={2}
                   max={8}
                   step={1}
-                  onValueChange={([value]) => setPreviewColumns(value)}
+                  onValueChange={([value]) => setPreviewSettings({ columns: value })}
                 />
               </div>
 
@@ -257,14 +240,14 @@ function GenerateMode() {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label className="text-xs">码尺寸</Label>
-                  <span className="text-xs text-muted-foreground">{previewSize}px</span>
+                  <span className="text-xs text-muted-foreground">{previewSettings.size}px</span>
                 </div>
                 <Slider
-                  value={[previewSize]}
+                  value={[previewSettings.size]}
                   min={80}
                   max={250}
                   step={10}
-                  onValueChange={([value]) => setPreviewSize(value)}
+                  onValueChange={([value]) => setPreviewSettings({ size: value })}
                 />
               </div>
             </CardContent>
@@ -307,8 +290,8 @@ function GenerateMode() {
             <div className="space-y-1">
               <Label className="text-xs">导出格式</Label>
               <Select
-                value={exportFormat}
-                onValueChange={(value: 'pdf' | 'multiple' | 'collage') => setExportFormat(value)}
+                value={exportSettings.format}
+                onValueChange={(value: 'pdf' | 'multiple' | 'collage') => setExportSettings({ format: value })}
               >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
@@ -341,10 +324,10 @@ function GenerateMode() {
               variant="ghost"
               size="sm"
               className="w-full flex items-center justify-between h-7"
-              onClick={() => setExportExpanded(!exportExpanded)}
+              onClick={() => setExportSettings({ expanded: !exportSettings.expanded })}
             >
               <span className="text-xs text-muted-foreground">更多选项</span>
-              {exportExpanded ? (
+              {exportSettings.expanded ? (
                 <ChevronUp className="h-3 w-3" />
               ) : (
                 <ChevronDown className="h-3 w-3" />
@@ -352,12 +335,12 @@ function GenerateMode() {
             </Button>
 
             {/* 折叠的选项 */}
-            {exportExpanded && (
+            {exportSettings.expanded && (
               <div className="space-y-3 pt-2 border-t">
-                {exportFormat === 'collage' && (
+                {exportSettings.format === 'collage' && (
                   <div className="space-y-1">
                     <Label className="text-xs">网格列数</Label>
-                    <Select value={String(exportColumns)} onValueChange={(value) => setExportColumns(Number(value))}>
+                    <Select value={String(exportSettings.columns)} onValueChange={(value) => setExportSettings({ columns: Number(value) })}>
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
@@ -372,10 +355,10 @@ function GenerateMode() {
                   </div>
                 )}
 
-                {exportFormat === 'pdf' && (
+                {exportSettings.format === 'pdf' && (
                   <div className="space-y-1">
                     <Label className="text-xs">每页显示数量</Label>
-                    <Select value={String(itemsPerPage)} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                    <Select value={String(exportSettings.itemsPerPage)} onValueChange={(value) => setExportSettings({ itemsPerPage: Number(value) })}>
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
@@ -393,7 +376,7 @@ function GenerateMode() {
                   </div>
                 )}
 
-                {exportFormat === 'multiple' && (
+                {exportSettings.format === 'multiple' && (
                   <div className="space-y-1">
                     <Label className="text-xs">文件名规则</Label>
                     <input
@@ -418,24 +401,24 @@ function GenerateMode() {
               disabled={contentLines.length === 0}
             >
               <Download className="mr-1.5 h-3.5 w-3.5" />
-              导出 {exportFormat === 'pdf' ? 'PDF' : exportFormat === 'multiple' ? 'ZIP' : '图片'}
+              导出 {exportSettings.format === 'pdf' ? 'PDF' : exportSettings.format === 'multiple' ? 'ZIP' : '图片'}
             </Button>
           </CardContent>
         </Card>
       </div>
 
-      {/* 右侧面板：预览 */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {currentMode === 'single' ? (
-          <QRCodePreview config={currentConfig} />
-        ) : (
-          <BatchPreview
-            config={batchConfig.globalStyle}
-            columns={previewColumns}
-            qrSize={previewSize}
-          />
-        )}
-      </div>
+        {/* 右侧面板：预览 */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {currentMode === 'single' ? (
+            <QRCodePreview config={currentConfig} />
+          ) : (
+            <BatchPreview
+              config={batchConfig.globalStyle}
+              columns={previewSettings.columns}
+              qrSize={previewSettings.size}
+            />
+          )}
+        </div>
     </div>
   );
 }
