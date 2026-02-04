@@ -6,14 +6,40 @@ import { Switch } from '../ui/Switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/Select';
 import { Slider } from '../ui/Slider';
 import { ColorPicker } from '../ui/ColorPicker';
-import { ChevronDown, ChevronUp, Download, FileText, FileArchive, Grid, Settings, LayoutGrid, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, FileText, FileArchive, Grid, Settings, LayoutGrid, RotateCcw, ScanLine } from 'lucide-react';
 import { useQRCodeStore } from '@/stores';
 import { QRCodePreview } from './QRCodePreview';
 import { BatchPreview } from './BatchPreview';
+import { QRCodeDecoder } from './QRCodeDecoder';
 import { Tabs, TabsList, TabsTrigger } from '../ui/Tabs';
 
 export function QRCodeGenerator() {
-  return <GenerateMode />;
+  const [activeTab, setActiveTab] = useState<'generate' | 'decode'>('generate');
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* 顶部 Tab 切换 */}
+      <div className="mb-4">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'generate' | 'decode')}>
+          <TabsList className="h-10">
+            <TabsTrigger value="generate" className="px-4">
+              <ScanLine className="h-4 w-4 mr-2" />
+              生成二维码
+            </TabsTrigger>
+            <TabsTrigger value="decode" className="px-4">
+              <ScanLine className="h-4 w-4 mr-2" />
+              解码二维码
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* 内容区域 */}
+      <div className="flex-1 overflow-hidden">
+        {activeTab === 'generate' ? <GenerateMode /> : <QRCodeDecoder />}
+      </div>
+    </div>
+  );
 }
 
 function GenerateMode() {
