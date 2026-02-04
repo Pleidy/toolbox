@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import jsQR from 'jsqr';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -10,6 +10,37 @@ interface DecodeItem {
   data?: string;
   error?: string;
   timestamp: number;
+}
+
+// 尝试解析并格式化 JSON
+function tryFormatJson(text: string): { isJson: boolean; formatted: string } {
+  try {
+    const parsed = JSON.parse(text);
+    return {
+      isJson: true,
+      formatted: JSON.stringify(parsed, null, 2),
+    };
+  } catch {
+    return {
+      isJson: false,
+      formatted: text,
+    };
+  }
+}
+
+// 渲染解码内容（支持 JSON 格式化显示）
+function DecodedContent({ data }: { data: string }) {
+  const { isJson, formatted } = useMemo(() => tryFormatJson(data), [data]);
+
+  if (isJson) {
+    return (
+      <pre className="text-sm font-mono mt-1 whitespace-pre-wrap break-all bg-muted/30 p-2 rounded overflow-x-auto max-h-60 overflow-y-auto">
+        {formatted}
+      </pre>
+    );
+  }
+
+  return <p className="text-sm break-all font-mono mt-1">{data}</p>;
 }
 
 export function QRCodeDecoder() {
@@ -262,7 +293,7 @@ export function QRCodeDecoder() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-muted-foreground truncate">{item.fileName}</p>
                       {item.data ? (
-                        <p className="text-sm break-all font-mono mt-1">{item.data}</p>
+                        <DecodedContent data={item.data} />
                       ) : (
                         <p className="text-sm text-destructive mt-1">{item.error}</p>
                       )}

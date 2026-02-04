@@ -15,11 +15,26 @@ interface JsonTab {
 const createId = () => Math.random().toString(36).substring(2, 9);
 
 function tryParseJson(input: string): { success: boolean; data?: unknown; error?: string } {
-  if (!input.trim()) return { success: false, error: "Empty input" };
+  if (!input.trim()) return { success: false, error: "" };
+
   try {
-    return { success: true, data: JSON.parse(input) };
+    const parsed = JSON.parse(input);
+    return { success: true, data: parsed };
   } catch (e) {
-    return { success: false, error: (e as Error).message };
+    const error = e as Error;
+    let errorMessage = error.message;
+
+    // Extract position information if available
+    const positionMatch = errorMessage.match(/position (\d+)/);
+    if (positionMatch) {
+      const position = parseInt(positionMatch[1], 10);
+      const lines = input.substring(0, position).split('\n');
+      const line = lines.length;
+      const column = lines[lines.length - 1].length + 1;
+      errorMessage = `${errorMessage} (行 ${line}, 列 ${column})`;
+    }
+
+    return { success: false, error: errorMessage };
   }
 }
 
@@ -65,6 +80,21 @@ export function JsonFormatter() {
     if (e.ctrlKey && e.key === "a") { e.preventDefault(); (e.target as HTMLTextAreaElement).select(); }
   }, [handleFormat]);
 
+  // 粘贴时自动格式化 JSON
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pastedText = e.clipboardData.getData('text');
+    if (!pastedText.trim()) return;
+
+    try {
+      const parsed = JSON.parse(pastedText);
+      const formatted = JSON.stringify(parsed, null, 2);
+      e.preventDefault();
+      updateActiveTab({ input: formatted });
+    } catch {
+      // 不是有效 JSON，使用默认粘贴行为
+    }
+  }, [updateActiveTab]);
+
   const addTab = useCallback(() => {
     const newTab: JsonTab = { id: createId(), name: "标签 " + (tabs.length + 1), input: "", fontSize: activeTab.fontSize };
     setTabs(prev => [...prev, newTab]);
@@ -82,7 +112,7 @@ export function JsonFormatter() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 flex gap-2 p-1 overflow-hidden">
-        <Card className="flex-1 flex flex-col min-w-0">
+        <Card className="w-[40%] flex-shrink-0 flex flex-col min-w-0">
           <CardHeader className="flex-shrink-0 py-1 px-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-xs font-medium flex items-center gap-1">
@@ -97,13 +127,14 @@ export function JsonFormatter() {
             </div>
           </CardHeader>
           <CardContent className="flex-1 py-0 px-1">
-            <textarea 
-              value={activeTab.input} 
-              onChange={(e) => updateActiveTab({ input: e.target.value })} 
+            <textarea
+              value={activeTab.input}
+              onChange={(e) => updateActiveTab({ input: e.target.value })}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               className="w-full h-full resize-none border rounded p-1.5 font-mono text-xs bg-muted/20 focus:outline-none focus:ring-1 focus:ring-primary"
-              style={{ fontSize: activeTab.fontSize, lineHeight: "1.3" }} 
-              placeholder="在此粘贴 JSON..." 
+              style={{ fontSize: activeTab.fontSize, lineHeight: "1.3" }}
+              placeholder="在此粘贴 JSON..."
             />
           </CardContent>
           <CardFooter className="flex-shrink-0 py-1 px-2 border-t">
@@ -125,7 +156,7 @@ export function JsonFormatter() {
           </CardFooter>
         </Card>
 
-        <Card className="flex-1 flex flex-col min-w-0">
+        <Card className="w-[60%] flex-shrink-0 flex flex-col min-w-0">
           <CardHeader className="flex-shrink-0 py-1 px-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-xs font-medium flex items-center gap-1">
@@ -133,13 +164,18 @@ export function JsonFormatter() {
               </CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 py-0 px-1 overflow-auto">
+          <CardContent className="flex-1 py-0 px-0 overflow-auto">
             {parseResult.success ? (
-              <div style={{ fontSize: activeTab.fontSize }}>
+              <div style={{ fontSize: activeTab.fontSize }} className="h-full">
                 <JsonRenderer data={parseResult.data as object} />
               </div>
             ) : parseResult.error ? (
-              <div className="text-destructive text-xs p-2">Error: {parseResult.error}</div>
+              <div className="p-2">
+                <div className="text-destructive text-xs font-semibold mb-1">JSON 解析错误</div>
+                <div className="text-destructive text-xs bg-destructive/10 p-2 rounded border border-destructive/20">
+                  {parseResult.error}
+                </div>
+              </div>
             ) : (
               <div className="text-muted-foreground text-xs p-2">结果将显示在这里...</div>
             )}

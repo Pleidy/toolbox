@@ -1,93 +1,227 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
+import { ChevronRight, ChevronDown, Copy } from "lucide-react";
 
 interface JsonRendererProps {
   data: unknown;
 }
 
+// 折叠状态管理
+type CollapsedState = Record<string, boolean>;
+
+// 行数据结构
+interface LineData {
+  lineNumber: number;        // 原始行号（不变）
+  content: React.ReactNode;  // 行内容
+  path?: string;             // 可折叠节点的路径
+  isExpandable?: boolean;    // 是否可折叠
+  isCollapsed?: boolean;     // 当前是否折叠
+  skippedLines?: number;     // 折叠时跳过的行数
+}
+
+// 渲染 JSON 值
+function renderValue(value: unknown): React.ReactNode {
+  if (value === null) return <span className="text-muted-foreground">null</span>;
+  if (value === undefined) return <span className="text-muted-foreground">undefined</span>;
+  if (typeof value === "boolean") return <span className="text-purple-600 dark:text-purple-400">{String(value)}</span>;
+  if (typeof value === "number") return <span className="text-blue-600 dark:text-blue-400">{String(value)}</span>;
+  if (typeof value === "string") return <span className="text-green-600 dark:text-green-400">"{value}"</span>;
+  return null;
+}
+
+// 计算节点展开时的总行数
+function countLines(data: unknown): number {
+  if (typeof data !== "object" || data === null) return 1;
+  const isArray = Array.isArray(data);
+  const entries = isArray ? data : Object.values(data);
+  let count = 2; // 开始行 + 结束行
+  for (const entry of entries) {
+    count += countLines(entry);
+  }
+  return count;
+}
+
+// 递归生成行数据
+function generateLines(
+  data: unknown,
+  collapsedState: CollapsedState,
+  lineCounter: { current: number },
+  name?: string | number,
+  depth: number = 0,
+  path: string = "root",
+  isLast: boolean = true
+): LineData[] {
+  const lines: LineData[] = [];
+  const indent = depth * 16;
+  const isCollapsed = collapsedState[path] ?? false;
+  const displayName = name !== undefined
+    ? <><span className="text-foreground">"</span><span className="text-sky-600 dark:text-sky-400">{String(name)}</span><span className="text-foreground">"</span><span className="text-foreground">: </span></>
+    : null;
+  const comma = isLast ? "" : ",";
+
+  const isObject = typeof data === "object" && data !== null && !Array.isArray(data);
+  const isArray = Array.isArray(data);
+  const isExpandable = isObject || isArray;
+
+  if (!isExpandable) {
+    // 简单值行
+    lines.push({
+      lineNumber: lineCounter.current++,
+      content: (
+        <div className="flex items-center hover:bg-muted/30 group h-[22px]" style={{ paddingLeft: indent }}>
+          {displayName}
+          {renderValue(data)}
+          <span className="text-foreground">{comma}</span>
+          <button
+            onClick={() => navigator.clipboard.writeText(typeof data === "string" ? data : JSON.stringify(data))}
+            className="opacity-0 group-hover:opacity-100 ml-1 p-0.5 hover:bg-muted rounded"
+            title="复制值"
+          >
+            <Copy className="w-2.5 h-2.5 text-muted-foreground" />
+          </button>
+        </div>
+      ),
+    });
+    return lines;
+  }
+
+  const openChar = isArray ? "[" : "{";
+  const closeChar = isArray ? "]" : "}";
+  const entries = isArray
+    ? (data as unknown[]).map((item, idx) => ({ key: idx, value: item }))
+    : Object.entries(data as object).map(([key, value]) => ({ key, value }));
+  const itemCount = entries.length;
+
+  // 计算折叠时跳过的行数
+  const totalLinesIfExpanded = countLines(data);
+  const skippedLines = totalLinesIfExpanded - 1; // 减去开始行
+
+  const openLineNumber = lineCounter.current++;
+
+  // 开始行
+  lines.push({
+    lineNumber: openLineNumber,
+    path,
+    isExpandable: true,
+    isCollapsed,
+    skippedLines: isCollapsed ? skippedLines : undefined,
+    content: (
+      <div className="flex items-center hover:bg-muted/30 group h-[22px]" style={{ paddingLeft: indent }}>
+        {displayName}
+        <span className="text-foreground">{openChar}</span>
+        {isCollapsed && (
+          <>
+            <span className="text-muted-foreground mx-1">...{itemCount} {isArray ? "items" : "keys"}</span>
+            <span className="text-foreground">{closeChar}{comma}</span>
+          </>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(JSON.stringify(data, null, 2)); }}
+          className="opacity-0 group-hover:opacity-100 ml-1 p-0.5 hover:bg-muted rounded"
+          title="复制节点"
+        >
+          <Copy className="w-2.5 h-2.5 text-muted-foreground" />
+        </button>
+      </div>
+    ),
+  });
+
+  if (isCollapsed) {
+    // 折叠时跳过行号
+    lineCounter.current += skippedLines;
+  } else {
+    // 展开时渲染子节点
+    entries.forEach((entry, idx) => {
+      const childPath = `${path}.${entry.key}`;
+      const childLines = generateLines(
+        entry.value,
+        collapsedState,
+        lineCounter,
+        entry.key,
+        depth + 1,
+        childPath,
+        idx === entries.length - 1
+      );
+      lines.push(...childLines);
+    });
+
+    // 结束行
+    lines.push({
+      lineNumber: lineCounter.current++,
+      content: (
+        <div className="flex items-center hover:bg-muted/30 h-[22px]" style={{ paddingLeft: indent }}>
+          <span className="text-foreground">{closeChar}{comma}</span>
+        </div>
+      ),
+    });
+  }
+
+  return lines;
+}
+
 export function JsonRenderer({ data }: JsonRendererProps) {
-  if (data === undefined) {
-    return <span className="text-gray-500">undefined</span>;
-  }
-  
-  const jsonStr = JSON.stringify(data, null, 2);
-  
-  const parts: (string | React.ReactNode)[] = [];
-  let i = 0;
-  let expectKey = false;
-  
-  while (i < jsonStr.length) {
-    if (jsonStr[i] === "\n") {
-      parts.push("\n");
-      i++;
-      expectKey = false;
-    } else if (jsonStr[i] === " ") {
-      let spaces = "";
-      while (i < jsonStr.length && jsonStr[i] === " ") {
-        spaces += " ";
-        i++;
-      }
-      parts.push(spaces);
-    } else if (jsonStr[i] === "t" && jsonStr.substring(i, i + 4) === "true") {
-      parts.push(<span className="text-purple-600 dark:text-purple-400">true</span>);
-      i += 4;
-    } else if (jsonStr[i] === "f" && jsonStr.substring(i, i + 5) === "false") {
-      parts.push(<span className="text-purple-600 dark:text-purple-400">false</span>);
-      i += 5;
-    } else if (jsonStr[i] === "n" && jsonStr.substring(i, i + 4) === "null") {
-      parts.push(<span className="text-gray-500 dark:text-gray-400">null</span>);
-      i += 4;
-    } else if (jsonStr[i] === "-" || !isNaN(Number(jsonStr[i]))) {
-      let num = "";
-      while (i < jsonStr.length && (jsonStr[i] === "-" || !isNaN(Number(jsonStr[i])) || jsonStr[i] === "." || jsonStr[i] === "e" || jsonStr[i] === "E" || jsonStr[i] === "+")) {
-        num += jsonStr[i];
-        i++;
-      }
-      parts.push(<span className="text-blue-600 dark:text-blue-400">{num}</span>);
-    } else if (jsonStr[i] === "{") {
-      parts.push("{");
-      i++;
-      expectKey = true;
-    } else if (jsonStr[i] === "}") {
-      parts.push("}");
-      i++;
-      expectKey = false;
-    } else if (jsonStr[i] === "[") {
-      parts.push("[");
-      i++;
-      expectKey = true;
-    } else if (jsonStr[i] === "]") {
-      parts.push("]");
-      i++;
-      expectKey = false;
-    } else if (jsonStr[i] === ":") {
-      parts.push(":");
-      i++;
-      expectKey = false;
-    } else if (jsonStr[i] === ",") {
-      parts.push(",");
-      i++;
-      expectKey = true;
-    } else if (jsonStr[i] === "\"") {
-      let str = "";
-      i++;
-      while (i < jsonStr.length && !(jsonStr[i] === "\"" && jsonStr[i - 1] !== "\\")) {
-        str += jsonStr[i];
-        i++;
-      }
-      i++;
-      if (expectKey) {
-        parts.push(<span className="text-purple-600 dark:text-purple-400">"{str}"</span>);
-      } else {
-        parts.push(<span className="text-green-600 dark:text-green-400">"{str}"</span>);
-      }
-    } else {
-      i++;
+  const [collapsedState, setCollapsedState] = useState<CollapsedState>({});
+
+  const toggleCollapse = (path: string) => {
+    setCollapsedState(prev => ({ ...prev, [path]: !prev[path] }));
+  };
+
+  const lines = useMemo(() => {
+    if (data === undefined) return [];
+    if (Array.isArray(data) || (typeof data === "object" && data !== null)) {
+      return generateLines(data, collapsedState, { current: 1 });
     }
+    // 简单值
+    return [{
+      lineNumber: 1,
+      content: (
+        <div className="flex items-center h-[22px]">
+          {renderValue(data)}
+        </div>
+      ),
+    }] as LineData[];
+  }, [data, collapsedState]);
+
+  if (data === undefined) {
+    return <span className="text-muted-foreground">undefined</span>;
   }
-  
+
   return (
-    <div className="font-mono text-sm whitespace-pre-wrap break-all">
-      {parts}
+    <div className="font-mono text-sm flex h-full">
+      {/* 左侧行号列 - 只有有数据时才显示 */}
+      {lines.length > 0 && (
+        <div className="flex-shrink-0 select-none bg-muted/60 dark:bg-muted/30 border-r border-border">
+          {lines.map((line, idx) => (
+            <div
+              key={idx}
+              className={`text-[11px] leading-[22px] h-[22px] flex items-center justify-end px-1.5 ${
+                line.isExpandable
+                  ? "cursor-pointer hover:bg-primary/20 text-primary"
+                  : "text-muted-foreground/60"
+              }`}
+              onClick={() => line.path && toggleCollapse(line.path)}
+              title={line.isExpandable ? (line.isCollapsed ? "点击展开" : "点击折叠") : undefined}
+            >
+              {line.isExpandable && (
+                <span className="mr-0.5">
+                  {line.isCollapsed
+                    ? <ChevronRight className="w-2.5 h-2.5" />
+                    : <ChevronDown className="w-2.5 h-2.5" />
+                  }
+                </span>
+              )}
+              <span>{line.lineNumber}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* 内容列 */}
+      <div className="flex-1 overflow-x-auto pl-2">
+        {lines.map((line, idx) => (
+          <div key={idx} className="leading-[22px]">
+            {line.content}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
