@@ -82,8 +82,13 @@ function GenerateMode() {
 
   // 处理单个内容更新
   useEffect(() => {
-    if (currentMode === 'single' && contentLines.length > 0) {
-      setSingleConfig({ content: contentLines[0] });
+    if (currentMode === 'single') {
+      if (contentLines.length > 0) {
+        setSingleConfig({ content: contentLines[0] });
+      } else {
+        // 清空输入时也要清空配置
+        setSingleConfig({ content: '' });
+      }
     }
   }, [currentMode, contentLines, setSingleConfig]);
 
