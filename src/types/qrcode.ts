@@ -17,6 +17,7 @@ export interface BatchItem {
   customStyle?: Partial<QRCodeConfig>;
   filename?: string;
   status: 'pending' | 'generating' | 'completed' | 'failed';
+  used?: boolean;  // 是否已使用（用于标记功能）
   error?: string;
 }
 

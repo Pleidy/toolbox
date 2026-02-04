@@ -1,4 +1,4 @@
-import { QrCode, Settings, LayoutGrid, FileJson, Sun, Moon } from 'lucide-react';
+import { QrCode, Settings, LayoutGrid, FileJson, Sun, Moon, ChevronLeft } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Switch } from '../ui/Switch';
 import { useAppStore } from '@/stores';
@@ -11,7 +11,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
-  const { sidebarOpen, theme } = useAppStore();
+  const { sidebarOpen, theme, setSidebarOpen } = useAppStore();
   const { setTheme: setNextTheme } = useTheme();
 
   const handleThemeChange = (checked: boolean) => {
@@ -29,8 +29,8 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "w-64 border-r bg-card transition-all duration-300 flex flex-col",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        "border-r bg-card transition-all duration-300 flex flex-col",
+        sidebarOpen ? "w-64" : "w-0 overflow-hidden"
       )}
     >
       <div className="p-4 border-b">
@@ -54,8 +54,19 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
         })}
       </nav>
       
-      <div className="p-4 border-t space-y-2">
-        <div className="flex items-center justify-between">
+      <div className="mt-auto pt-4 border-t relative">
+        {/* 侧边栏收缩按钮 - 右下角 */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setSidebarOpen(false)}
+          className="absolute -bottom-px right-0 z-10 rounded-tr-lg rounded-bl-none bg-background border-t border-r border-border/50 shadow-md hover:bg-accent transition-colors"
+          title="收起侧边栏"
+        >
+          <ChevronLeft className="h-4 w-4 text-foreground" />
+        </Button>
+        
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
             <Sun className="h-4 w-4" />
             <Switch

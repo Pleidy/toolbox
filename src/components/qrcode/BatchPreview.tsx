@@ -3,7 +3,7 @@ import { Card, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { QRCodeConfig } from '@/types';
 import { generateQRCode, configToOptions } from '@/lib/qrcode';
-import { Loader2, Trash2, RefreshCw } from 'lucide-react';
+import { Loader2, Trash2, RefreshCw, XCircle } from 'lucide-react';
 import { useQRCodeStore } from '@/stores';
 
 interface BatchPreviewProps {
@@ -15,6 +15,8 @@ interface BatchPreviewProps {
 export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreviewProps) {
   const batchConfig = useQRCodeStore((state) => state.batchConfig);
   const removeBatchItem = useQRCodeStore((state) => state.removeBatchItem);
+  const toggleUsed = useQRCodeStore((state) => state.toggleUsed);
+  const clearAllUsed = useQRCodeStore((state) => state.clearAllUsed);
   const [previews, setPreviews] = useState<{ id: string; dataUrl: string }[]>([]);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -101,26 +103,46 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-muted-foreground">
             {batchConfig.data.length} 个二维码
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={generating}
-            className="h-7 px-2"
-          >
-            {generating ? (
-              <>
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                <span className="text-xs">生成中... {Math.round(progress)}%</span>
-              </>
-            ) : (
-              <>
-                <RefreshCw className="mr-1 h-3 w-3" />
-                <span className="text-xs">刷新</span>
-              </>
+            {batchConfig.data.filter(item => item.used).length > 0 && (
+              <span className="ml-2 text-green-600 dark:text-green-400">
+                ({batchConfig.data.filter(item => item.used).length} 已标记)
+              </span>
             )}
-          </Button>
+          </span>
+          <div className="flex items-center gap-1">
+            {batchConfig.data.some(item => item.used) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllUsed}
+                disabled={generating}
+                className="h-7 px-2 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900"
+                title="取消所有标记"
+              >
+                <XCircle className="mr-1 h-3 w-3" />
+                <span className="text-xs">取消标记</span>
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={generating}
+              className="h-7 px-2"
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  <span className="text-xs">生成中... {Math.round(progress)}%</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-1 h-3 w-3" />
+                  <span className="text-xs">刷新</span>
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {generating && (
@@ -147,15 +169,37 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
             return (
               <div
                 key={preview.id}
-                className="relative group border-b border-r p-3 hover:bg-accent/50 transition-colors"
+                className="relative group border-b border-r p-3 hover:bg-accent/50 transition-colors cursor-pointer"
+                onClick={() => toggleUsed(preview.id)}
               >
                 <div className="flex flex-col items-center justify-center">
-                  <img
-                    src={preview.dataUrl}
-                    alt={`QR ${index + 1}`}
-                    className="object-contain"
-                    style={{ width: qrSize - 10, height: qrSize - 10 }}
-                  />
+                  <div className="relative">
+                    <img
+                      src={preview.dataUrl}
+                      alt={`QR ${index + 1}`}
+                      className="object-contain"
+                      style={{ width: qrSize - 10, height: qrSize - 10 }}
+                    />
+                    {/* 标记蒙层 */}
+                    {item.used && (
+                      <div className="absolute inset-0 bg-green-500/50 flex items-center justify-center">
+                        <svg
+                          className="w-8 h-8 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
                   <span className="mt-0.5 text-[10px] text-muted-foreground truncate max-w-full px-1">
                     {item.content}
                   </span>
@@ -164,7 +208,7 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
                 <Button
                   variant="destructive"
                   size="icon"
-                  className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 z-10"
+                  className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 z-20"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleRemove(preview.id);

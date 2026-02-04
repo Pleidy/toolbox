@@ -59,6 +59,21 @@ export function QRCodePreview({ config, className }: QRCodePreviewProps) {
     };
   }, [config]);
 
+  // 如果内容为空，显示占位提示
+  if (!config.content || config.content.trim() === '') {
+    return (
+      <Card className={className}>
+        <CardContent className="flex items-center justify-center h-[500px]">
+          <div className="text-center">
+            <p className="text-muted-foreground text-sm">
+              请输入内容生成二维码
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // 计算实际显示尺寸（确保不小于最小值）
   const displaySize = Math.max(config.width, MIN_QR_SIZE);
 

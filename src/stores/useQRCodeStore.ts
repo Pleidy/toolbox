@@ -45,6 +45,8 @@ interface QRCodeState {
   updateBatchItem: (id: string, item: Partial<BatchItem>) => void;
   clearBatchItems: () => void;
   setBatchData: (data: BatchItem[]) => void;
+  toggleUsed: (id: string) => void;  // 切换单个项目的已使用状态
+  clearAllUsed: () => void;           // 清除所有已使用状态
   
   // Generation progress (not persisted)
   generating: boolean;
@@ -125,6 +127,24 @@ export const useQRCodeStore = create<QRCodeState>()(
       })),
       setBatchData: (data) => set((state) => ({
         batchConfig: { ...state.batchConfig, data }
+      })),
+      
+      // Toggle used status for a single item
+      toggleUsed: (id) => set((state) => ({
+        batchConfig: {
+          ...state.batchConfig,
+          data: state.batchConfig.data.map(item =>
+            item.id === id ? { ...item, used: !item.used } : item
+          )
+        }
+      })),
+      
+      // Clear all used statuses
+      clearAllUsed: () => set((state) => ({
+        batchConfig: {
+          ...state.batchConfig,
+          data: state.batchConfig.data.map(item => ({ ...item, used: false }))
+        }
       })),
       
       // Generation progress (not persisted - in memory only)
