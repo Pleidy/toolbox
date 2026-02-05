@@ -171,8 +171,8 @@ export function JsonFormatter() {
           </CardHeader>
           <CardContent className="flex-1 py-0 px-0 overflow-auto">
             {parseResult.success ? (
-              <div style={{ fontSize: activeTab?.fontSize || 13 }} className="h-full">
-                <JsonRenderer data={parseResult.data as object} />
+              <div className="h-full">
+                <JsonRenderer data={parseResult.data as object} fontSize={activeTab?.fontSize || 13} />
               </div>
             ) : parseResult.error ? (
               <div className="p-2">

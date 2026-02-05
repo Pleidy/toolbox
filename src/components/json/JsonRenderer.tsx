@@ -3,6 +3,7 @@ import { ChevronRight, ChevronDown, Copy } from "lucide-react";
 
 interface JsonRendererProps {
   data: unknown;
+  fontSize?: number;
 }
 
 // 折叠状态管理
@@ -67,7 +68,7 @@ function generateLines(
     lines.push({
       lineNumber: lineCounter.current++,
       content: (
-        <div className="flex items-center hover:bg-muted/30 group h-[22px]" style={{ paddingLeft: indent }}>
+        <div className="flex items-center hover:bg-muted/30 group h-full" style={{ paddingLeft: indent }}>
           {displayName}
           {renderValue(data)}
           <span className="text-foreground">{comma}</span>
@@ -105,7 +106,7 @@ function generateLines(
     isCollapsed,
     skippedLines: isCollapsed ? skippedLines : undefined,
     content: (
-      <div className="flex items-center hover:bg-muted/30 group h-[22px]" style={{ paddingLeft: indent }}>
+      <div className="flex items-center hover:bg-muted/30 group h-full" style={{ paddingLeft: indent }}>
         {displayName}
         <span className="text-foreground">{openChar}</span>
         {isCollapsed && (
@@ -148,7 +149,7 @@ function generateLines(
     lines.push({
       lineNumber: lineCounter.current++,
       content: (
-        <div className="flex items-center hover:bg-muted/30 h-[22px]" style={{ paddingLeft: indent }}>
+        <div className="flex items-center hover:bg-muted/30 h-full" style={{ paddingLeft: indent }}>
           <span className="text-foreground">{closeChar}{comma}</span>
         </div>
       ),
@@ -158,8 +159,11 @@ function generateLines(
   return lines;
 }
 
-export function JsonRenderer({ data }: JsonRendererProps) {
+export function JsonRenderer({ data, fontSize = 13 }: JsonRendererProps) {
   const [collapsedState, setCollapsedState] = useState<CollapsedState>({});
+
+  // 根据字体大小计算行高
+  const lineHeight = Math.round(fontSize * 1.7);
 
   const toggleCollapse = (path: string) => {
     setCollapsedState(prev => ({ ...prev, [path]: !prev[path] }));
@@ -174,54 +178,48 @@ export function JsonRenderer({ data }: JsonRendererProps) {
     return [{
       lineNumber: 1,
       content: (
-        <div className="flex items-center h-[22px]">
+        <div className="flex items-center" style={{ height: lineHeight }}>
           {renderValue(data)}
         </div>
       ),
     }] as LineData[];
-  }, [data, collapsedState]);
+  }, [data, collapsedState, lineHeight]);
 
   if (data === undefined) {
     return <span className="text-muted-foreground">undefined</span>;
   }
 
   return (
-    <div className="font-mono text-sm flex h-full">
-      {/* 左侧行号列 - 只有有数据时才显示 */}
-      {lines.length > 0 && (
-        <div className="flex-shrink-0 select-none bg-muted/60 dark:bg-muted/30 border-r border-border">
-          {lines.map((line, idx) => (
-            <div
-              key={idx}
-              className={`text-[11px] leading-[22px] h-[22px] flex items-center justify-end px-1.5 ${
-                line.isExpandable
-                  ? "cursor-pointer hover:bg-primary/20 text-primary"
-                  : "text-muted-foreground/60"
-              }`}
-              onClick={() => line.path && toggleCollapse(line.path)}
-              title={line.isExpandable ? (line.isCollapsed ? "点击展开" : "点击折叠") : undefined}
-            >
+    <div className="font-mono h-full overflow-auto" style={{ fontSize }}>
+      {lines.map((line, idx) => (
+        <div key={idx} className="flex" style={{ height: lineHeight }}>
+          {/* 行号 */}
+          <div
+            className={`flex-shrink-0 select-none bg-muted/60 dark:bg-muted/30 border-r border-border px-1.5 flex items-center ${
+              line.isExpandable
+                ? "cursor-pointer hover:bg-primary/20 text-primary"
+                : "text-muted-foreground/60"
+            }`}
+            style={{ fontSize: fontSize * 0.85, minWidth: 40 }}
+            onClick={() => line.path && toggleCollapse(line.path)}
+            title={line.isExpandable ? (line.isCollapsed ? "点击展开" : "点击折叠") : undefined}
+          >
+            {/* 固定宽度的图标区域 */}
+            <span className="flex-shrink-0" style={{ width: fontSize * 0.9 }}>
               {line.isExpandable && (
-                <span className="mr-0.5">
-                  {line.isCollapsed
-                    ? <ChevronRight className="w-2.5 h-2.5" />
-                    : <ChevronDown className="w-2.5 h-2.5" />
-                  }
-                </span>
+                line.isCollapsed
+                  ? <ChevronRight style={{ width: fontSize * 0.8, height: fontSize * 0.8 }} />
+                  : <ChevronDown style={{ width: fontSize * 0.8, height: fontSize * 0.8 }} />
               )}
-              <span>{line.lineNumber}</span>
-            </div>
-          ))}
-        </div>
-      )}
-      {/* 内容列 */}
-      <div className="flex-1 overflow-x-auto pl-2">
-        {lines.map((line, idx) => (
-          <div key={idx} className="leading-[22px]">
+            </span>
+            <span className="text-right flex-1">{line.lineNumber}</span>
+          </div>
+          {/* 内容 */}
+          <div className="flex-1 pl-2 flex items-center whitespace-nowrap">
             {line.content}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }
