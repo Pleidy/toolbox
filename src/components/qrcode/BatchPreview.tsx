@@ -1,30 +1,58 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { QRCodeConfig } from '@/types';
+import { QRCodeConfig, BatchItem } from '@/types';
 import { generateQRCode, configToOptions } from '@/lib/qrcode';
-import { Loader2, Trash2, RefreshCw, XCircle } from 'lucide-react';
+import { Loader2, Trash2, RefreshCw, XCircle, Copy, Check } from 'lucide-react';
 import { useQRCodeStore } from '@/stores';
 
 interface BatchPreviewProps {
   config: QRCodeConfig;
   columns?: number;
   qrSize?: number;
+  rowHeight?: number;
 }
 
-export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreviewProps) {
+export function BatchPreview({ config, columns = 4, qrSize = 150, rowHeight = 180 }: BatchPreviewProps) {
   const batchConfig = useQRCodeStore((state) => state.batchConfig);
   const removeBatchItem = useQRCodeStore((state) => state.removeBatchItem);
   const toggleUsed = useQRCodeStore((state) => state.toggleUsed);
   const clearAllUsed = useQRCodeStore((state) => state.clearAllUsed);
+  const usedContents = useQRCodeStore((state) => state.usedContents);
+  const updateBatchItem = useQRCodeStore((state) => state.updateBatchItem);
   const [previews, setPreviews] = useState<{ id: string; dataUrl: string }[]>([]);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const isGeneratingRef = useRef(false);
   const initializedRef = useRef(false);
 
   // 确保 data 是数组
   const batchData = batchConfig?.data || [];
+
+  // 根据缓存的 usedContents 自动恢复标记状态
+  useEffect(() => {
+    if (batchData.length > 0 && usedContents.length > 0) {
+      batchData.forEach((item: BatchItem) => {
+        const shouldBeUsed = usedContents.includes(item.content);
+        if (shouldBeUsed && !item.used) {
+          updateBatchItem(item.id, { used: true });
+        }
+      });
+    }
+  }, [batchData.length, usedContents]);
+
+  // 复制内容
+  const handleCopy = useCallback(async (content: string, id: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // 阻止触发标记
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch (err) {
+      console.error('复制失败:', err);
+    }
+  }, []);
 
   // 生成预览
   const generatePreviews = useCallback(async () => {
@@ -106,14 +134,14 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-muted-foreground">
             {batchData.length} 个二维码
-            {batchData.filter(item => item.used).length > 0 && (
+            {batchData.filter((item: BatchItem) => item.used).length > 0 && (
               <span className="ml-2 text-green-600 dark:text-green-400">
-                ({batchData.filter(item => item.used).length} 已标记)
+                ({batchData.filter((item: BatchItem) => item.used).length} 已标记)
               </span>
             )}
           </span>
           <div className="flex items-center gap-1">
-            {batchData.some(item => item.used) && (
+            {batchData.some((item: BatchItem) => item.used) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -165,7 +193,7 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
           style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
         >
           {previews.map((preview, index) => {
-            const item = batchData.find(i => i.id === preview.id);
+            const item = batchData.find((i: BatchItem) => i.id === preview.id);
             // 如果 item 不存在（已被删除），跳过渲染
             if (!item) return null;
 
@@ -173,9 +201,10 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
               <div
                 key={preview.id}
                 className="relative group border-b border-r p-3 hover:bg-accent/50 transition-colors cursor-pointer"
+                style={{ height: rowHeight }}
                 onClick={() => toggleUsed(preview.id)}
               >
-                <div className="flex flex-col items-center justify-center">
+                <div className="flex flex-col items-center justify-center h-full">
                   <div className="relative">
                     <img
                       src={preview.dataUrl}
@@ -183,23 +212,29 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
                       className="object-contain"
                       style={{ width: qrSize - 10, height: qrSize - 10 }}
                     />
-                    {/* 标记蒙层 */}
+                    {/* 标记遮挡 - 黑色蒙层 + 斜线破坏二维码识别 */}
                     {item.used && (
-                      <div className="absolute inset-0 bg-green-500/50 flex items-center justify-center">
+                      <div className="absolute inset-0 pointer-events-none bg-black/50">
                         <svg
-                          className="w-8 h-8 text-white"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                          className="w-full h-full"
+                          viewBox="0 0 100 100"
+                          preserveAspectRatio="none"
                           xmlns="http://www.w3.org/2000/svg"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
+                          {/* 多条黑色斜线覆盖，破坏二维码识别 */}
+                          <line x1="0" y1="0" x2="100" y2="100" stroke="#000000" strokeWidth="8" />
+                          <line x1="100" y1="0" x2="0" y2="100" stroke="#000000" strokeWidth="8" />
+                          <line x1="0" y1="25" x2="75" y2="100" stroke="#000000" strokeWidth="6" />
+                          <line x1="25" y1="0" x2="100" y2="75" stroke="#000000" strokeWidth="6" />
+                          <line x1="0" y1="75" x2="25" y2="100" stroke="#000000" strokeWidth="6" />
+                          <line x1="75" y1="0" x2="100" y2="25" stroke="#000000" strokeWidth="6" />
                         </svg>
+                      </div>
+                    )}
+                    {/* 复制成功提示 */}
+                    {copiedId === preview.id && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-green-500/80 text-white text-xs font-medium">
+                        已复制
                       </div>
                     )}
                   </div>
@@ -207,7 +242,7 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
                     {item.content}
                   </span>
                 </div>
-                {/* 删除按钮 */}
+                {/* 删除按钮 - 右上角 */}
                 <Button
                   variant="destructive"
                   size="icon"
@@ -218,6 +253,20 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
                   }}
                 >
                   <Trash2 className="h-2.5 w-2.5" />
+                </Button>
+                {/* 复制按钮 - 右下角 */}
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute bottom-0.5 right-0.5 opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 z-20"
+                  onClick={(e) => handleCopy(item.content, preview.id, e)}
+                  title="复制内容"
+                >
+                  {copiedId === preview.id ? (
+                    <Check className="h-2.5 w-2.5 text-green-600" />
+                  ) : (
+                    <Copy className="h-2.5 w-2.5" />
+                  )}
                 </Button>
                 {/* 序号 */}
                 <div className="absolute top-0.5 left-0.5 bg-muted/80 text-[9px] px-1 rounded text-muted-foreground z-10">

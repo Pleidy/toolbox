@@ -8,6 +8,7 @@ import { Slider } from '../ui/Slider';
 import { ColorPicker } from '../ui/ColorPicker';
 import { ChevronDown, ChevronUp, Download, FileText, FileArchive, Grid, Settings, LayoutGrid, RotateCcw, ScanLine } from 'lucide-react';
 import { useQRCodeStore } from '@/stores';
+import { BatchItem } from '@/types';
 import { QRCodePreview } from './QRCodePreview';
 import { BatchPreview } from './BatchPreview';
 import { QRCodeDecoder } from './QRCodeDecoder';
@@ -64,8 +65,8 @@ function GenerateMode() {
   const contentLines = useMemo(() => {
     return inputText
       .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0);
   }, [inputText]);
 
   // 自动检测模式
@@ -96,10 +97,10 @@ function GenerateMode() {
           prevInputTextRef.current = inputText;
 
           // 只有当内容列表确实不同时才清空并重新添加
-          const currentContents = batchData.map(d => d.content);
+          const currentContents = batchData.map((d: BatchItem) => d.content);
           if (JSON.stringify(lines) !== JSON.stringify(currentContents)) {
             clearBatchItems();
-            lines.forEach(line => addBatchItem(line));
+            lines.forEach((line: string) => addBatchItem(line));
           }
         }
       }
@@ -263,7 +264,7 @@ function GenerateMode() {
                 </div>
                 <Slider
                   value={[previewSettings.columns]}
-                  min={2}
+                  min={1}
                   max={8}
                   step={1}
                   onValueChange={([value]) => setPreviewSettings({ columns: value })}
@@ -282,6 +283,21 @@ function GenerateMode() {
                   max={250}
                   step={10}
                   onValueChange={([value]) => setPreviewSettings({ size: value })}
+                />
+              </div>
+
+              {/* 行高 */}
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Label className="text-xs">行高</Label>
+                  <span className="text-xs text-muted-foreground">{previewSettings.rowHeight}px</span>
+                </div>
+                <Slider
+                  value={[previewSettings.rowHeight]}
+                  min={100}
+                  max={1000}
+                  step={10}
+                  onValueChange={([value]) => setPreviewSettings({ rowHeight: value })}
                 />
               </div>
             </CardContent>
@@ -450,6 +466,7 @@ function GenerateMode() {
               config={batchConfig.globalStyle}
               columns={previewSettings.columns}
               qrSize={previewSettings.size}
+              rowHeight={previewSettings.rowHeight}
             />
           )}
         </div>

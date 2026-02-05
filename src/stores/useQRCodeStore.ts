@@ -30,13 +30,14 @@ interface ExportSettings {
 interface PreviewSettings {
   columns: number;
   size: number;
+  rowHeight: number;
 }
 
 interface QRCodeState {
   // Single generation state
   singleConfig: QRCodeConfig;
   setSingleConfig: (config: Partial<QRCodeConfig>) => void;
-  
+
   // Batch generation state
   batchConfig: BatchConfig;
   setBatchConfig: (config: Partial<BatchConfig>) => void;
@@ -47,20 +48,23 @@ interface QRCodeState {
   setBatchData: (data: BatchItem[]) => void;
   toggleUsed: (id: string) => void;  // 切换单个项目的已使用状态
   clearAllUsed: () => void;           // 清除所有已使用状态
-  
+
+  // 已标记内容缓存 (基于内容持久化，而不是ID)
+  usedContents: string[];
+
   // Generation progress (not persisted)
   generating: boolean;
   progress: number;
   setGenerating: (generating: boolean) => void;
   setProgress: (progress: number) => void;
-  
+
   // Input and mode settings (persisted)
   inputText: string;
   autoMode: boolean;
   manualMode: 'single' | 'batch';
   exportSettings: ExportSettings;
   previewSettings: PreviewSettings;
-  
+
   // Actions for new persisted state
   setInputText: (text: string) => void;
   setAutoMode: (auto: boolean) => void;
@@ -79,6 +83,7 @@ const defaultExportSettings: ExportSettings = {
 const defaultPreviewSettings: PreviewSettings = {
   columns: 4,
   size: 150,
+  rowHeight: 180,
 };
 
 export const useQRCodeStore = create<QRCodeState>()(
@@ -129,45 +134,60 @@ export const useQRCodeStore = create<QRCodeState>()(
         batchConfig: { ...state.batchConfig, data }
       })),
       
-      // Toggle used status for a single item
-      toggleUsed: (id) => set((state) => ({
-        batchConfig: {
-          ...state.batchConfig,
-          data: state.batchConfig.data.map(item =>
-            item.id === id ? { ...item, used: !item.used } : item
-          )
-        }
-      })),
-      
+      // 已标记内容缓存
+      usedContents: [] as string[],
+
+      // Toggle used status for a single item (同时更新缓存)
+      toggleUsed: (id: string) => set((state) => {
+        const item = state.batchConfig.data.find((i: BatchItem) => i.id === id);
+        if (!item) return state;
+
+        const isCurrentlyUsed = item.used;
+        const newUsedContents = isCurrentlyUsed
+          ? state.usedContents.filter((c: string) => c !== item.content)
+          : [...state.usedContents, item.content];
+
+        return {
+          usedContents: newUsedContents,
+          batchConfig: {
+            ...state.batchConfig,
+            data: state.batchConfig.data.map((i: BatchItem) =>
+              i.id === id ? { ...i, used: !i.used } : i
+            )
+          }
+        };
+      }),
+
       // Clear all used statuses
       clearAllUsed: () => set((state) => ({
+        usedContents: [] as string[],
         batchConfig: {
           ...state.batchConfig,
-          data: state.batchConfig.data.map(item => ({ ...item, used: false }))
+          data: state.batchConfig.data.map((item: BatchItem) => ({ ...item, used: false }))
         }
       })),
-      
+
       // Generation progress (not persisted - in memory only)
       generating: false,
       progress: 0,
-      setGenerating: (generating) => set({ generating }),
-      setProgress: (progress) => set({ progress }),
-      
+      setGenerating: (generating: boolean) => set({ generating }),
+      setProgress: (progress: number) => set({ progress }),
+
       // Input and mode settings (persisted)
       inputText: '',
       autoMode: true,
-      manualMode: 'single',
+      manualMode: 'single' as const,
       exportSettings: defaultExportSettings,
       previewSettings: defaultPreviewSettings,
-      
+
       // Actions for persisted state
-      setInputText: (inputText) => set({ inputText }),
-      setAutoMode: (autoMode) => set({ autoMode }),
-      setManualMode: (manualMode) => set({ manualMode }),
-      setExportSettings: (settings) => set((state) => ({
+      setInputText: (inputText: string) => set({ inputText }),
+      setAutoMode: (autoMode: boolean) => set({ autoMode }),
+      setManualMode: (manualMode: 'single' | 'batch') => set({ manualMode }),
+      setExportSettings: (settings: Partial<ExportSettings>) => set((state) => ({
         exportSettings: { ...state.exportSettings, ...settings }
       })),
-      setPreviewSettings: (settings) => set((state) => ({
+      setPreviewSettings: (settings: Partial<PreviewSettings>) => set((state) => ({
         previewSettings: { ...state.previewSettings, ...settings }
       })),
     }),
@@ -185,8 +205,9 @@ export const useQRCodeStore = create<QRCodeState>()(
         manualMode: state.manualMode,
         exportSettings: state.exportSettings,
         previewSettings: state.previewSettings,
+        usedContents: state.usedContents, // 持久化已标记内容
       }),
-      version: 1,
+      version: 2, // 版本号升级
       // 合并恢复的状态与默认状态，确保所有字段都存在
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<QRCodeState> || {};
@@ -214,6 +235,8 @@ export const useQRCodeStore = create<QRCodeState>()(
             ...currentState.singleConfig,
             ...(persisted.singleConfig || {}),
           },
+          // 确保 usedContents 是数组
+          usedContents: persisted.usedContents || [],
         };
       },
       // 添加错误处理，防止损坏的状态导致空白页
