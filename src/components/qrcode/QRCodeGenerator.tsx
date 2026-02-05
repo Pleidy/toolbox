@@ -54,6 +54,9 @@ function GenerateMode() {
     previewSettings, setPreviewSettings,
   } = useQRCodeStore();
 
+  // 确保 data 是数组
+  const batchData = batchConfig?.data || [];
+
   // 从 localStorage 恢复上次的内容
   // 注意: inputText 现在从 store 的 persist 中恢复，不再需要手动 localStorage 读取
 
@@ -93,7 +96,7 @@ function GenerateMode() {
           prevInputTextRef.current = inputText;
 
           // 只有当内容列表确实不同时才清空并重新添加
-          const currentContents = batchConfig.data.map(d => d.content);
+          const currentContents = batchData.map(d => d.content);
           if (JSON.stringify(lines) !== JSON.stringify(currentContents)) {
             clearBatchItems();
             lines.forEach(line => addBatchItem(line));
@@ -101,7 +104,7 @@ function GenerateMode() {
         }
       }
     }
-  }, [inputText, autoMode, batchConfig.data, addBatchItem, clearBatchItems, contentLines]);
+  }, [inputText, autoMode, batchData, addBatchItem, clearBatchItems, contentLines]);
 
   // 确定当前使用的模式
   const currentMode = autoMode ? detectedMode : manualMode;

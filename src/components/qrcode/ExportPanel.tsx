@@ -13,6 +13,9 @@ interface ExportPanelProps {
 export function ExportPanel({ dataUrl, config, mode }: ExportPanelProps) {
   const { batchConfig, setGenerating, setProgress } = useQRCodeStore();
 
+  // 确保 data 是数组
+  const batchData = batchConfig?.data || [];
+
   // 监听来自 QRCodeGenerator 的导出事件
   useEffect(() => {
     const handleExport = (event: CustomEvent) => {
@@ -30,7 +33,7 @@ export function ExportPanel({ dataUrl, config, mode }: ExportPanelProps) {
 
     window.addEventListener('qrcode-export', handleExport as EventListener);
     return () => window.removeEventListener('qrcode-export', handleExport as EventListener);
-  }, [mode, dataUrl, batchConfig.data, config]);
+  }, [mode, dataUrl, batchData, config]);
 
   const handleSingleExport = async (url: string) => {
     if (!url) return;
@@ -47,7 +50,7 @@ export function ExportPanel({ dataUrl, config, mode }: ExportPanelProps) {
     pageCount: number,
     colCount: number
   ) => {
-    if (batchConfig.data.length === 0) return;
+    if (batchData.length === 0) return;
 
     setGenerating(true);
     setProgress(0);
@@ -56,8 +59,8 @@ export function ExportPanel({ dataUrl, config, mode }: ExportPanelProps) {
       // First generate all QR codes
       const qrCodesWithContent: { dataUrl: string; content: string }[] = [];
 
-      for (let i = 0; i < batchConfig.data.length; i++) {
-        const item = batchConfig.data[i];
+      for (let i = 0; i < batchData.length; i++) {
+        const item = batchData[i];
         const options = {
           width: config.width,
           margin: config.margin,
@@ -72,7 +75,7 @@ export function ExportPanel({ dataUrl, config, mode }: ExportPanelProps) {
         const qrDataUrl = await generateQRCode(item.content, options);
 
         qrCodesWithContent.push({ dataUrl: qrDataUrl, content: item.content });
-        setProgress(((i + 1) / batchConfig.data.length) * 50);
+        setProgress(((i + 1) / batchData.length) * 50);
       }
 
       // Then export based on selected type

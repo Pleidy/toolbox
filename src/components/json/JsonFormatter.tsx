@@ -1,18 +1,10 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Copy, Trash2, Type, ArrowDownUp, FileJson, Plus, X } from "lucide-react";
 import { JsonRenderer } from "./JsonRenderer";
-
-interface JsonTab {
-  id: string;
-  name: string;
-  input: string;
-  fontSize: number;
-}
-
-const createId = () => Math.random().toString(36).substring(2, 9);
+import { useJsonStore } from "@/stores/useJsonStore";
 
 function tryParseJson(input: string): { success: boolean; data?: unknown; error?: string } {
   if (!input.trim()) return { success: false, error: "" };
@@ -39,45 +31,65 @@ function tryParseJson(input: string): { success: boolean; data?: unknown; error?
 }
 
 export function JsonFormatter() {
-  const [tabs, setTabs] = useState<JsonTab[]>([
-    { id: createId(), name: "标签 1", input: "", fontSize: 13 }
-  ]);
-  const [activeTabId, setActiveTabId] = useState<string>(tabs[0].id);
+  const tabs = useJsonStore(state => state.tabs);
+  const activeTabId = useJsonStore(state => state.activeTabId);
+  const addTab = useJsonStore(state => state.addTab);
+  const closeTab = useJsonStore(state => state.closeTab);
+  const setActiveTab = useJsonStore(state => state.setActiveTab);
+  const updateTab = useJsonStore(state => state.updateTab);
 
   const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
 
-  const updateActiveTab = useCallback((updates: Partial<JsonTab>) => {
-    setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, ...updates } : t));
-  }, [activeTabId]);
-
-  const parseResult = tryParseJson(activeTab.input);
+  const parseResult = tryParseJson(activeTab?.input || "");
 
   const handleFormat = useCallback(() => {
-    if (!activeTab.input.trim()) { updateActiveTab({ input: "" }); return; }
-    try { updateActiveTab({ input: JSON.stringify(JSON.parse(activeTab.input), null, 2) }); } catch (e) {}
-  }, [activeTab.input, updateActiveTab]);
+    if (!activeTab?.input.trim()) {
+      updateTab(activeTab.id, { input: "" });
+      return;
+    }
+    try {
+      updateTab(activeTab.id, { input: JSON.stringify(JSON.parse(activeTab.input), null, 2) });
+    } catch (e) {}
+  }, [activeTab?.input, updateTab, activeTab?.id]);
 
   const handleCompress = useCallback(() => {
-    if (!activeTab.input.trim()) { updateActiveTab({ input: "" }); return; }
-    try { updateActiveTab({ input: JSON.stringify(JSON.parse(activeTab.input)) }); } catch (e) {}
-  }, [activeTab.input, updateActiveTab]);
+    if (!activeTab?.input.trim()) {
+      updateTab(activeTab.id, { input: "" });
+      return;
+    }
+    try {
+      updateTab(activeTab.id, { input: JSON.stringify(JSON.parse(activeTab.input)) });
+    } catch (e) {}
+  }, [activeTab?.input, updateTab, activeTab?.id]);
 
   const handleCopy = useCallback(async (text: string) => {
-    try { await navigator.clipboard.writeText(text); } catch (e) {}
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {}
   }, []);
 
   const handleClear = useCallback(() => {
-    updateActiveTab({ input: "" });
-  }, [updateActiveTab]);
+    if (activeTab) {
+      updateTab(activeTab.id, { input: "" });
+    }
+  }, [updateTab, activeTab]);
 
   const handleFontSizeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const size = parseInt(e.target.value, 10);
-    if (size >= 10 && size <= 24) updateActiveTab({ fontSize: size });
-  }, [updateActiveTab]);
+    if (size >= 10 && size <= 24 && activeTab) {
+      updateTab(activeTab.id, { fontSize: size });
+    }
+  }, [updateTab, activeTab]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.ctrlKey && e.key === "Enter") { e.preventDefault(); handleFormat(); }
-    if (e.ctrlKey && e.key === "a") { e.preventDefault(); (e.target as HTMLTextAreaElement).select(); }
+    if (e.ctrlKey && e.key === "Enter") {
+      e.preventDefault();
+      handleFormat();
+    }
+    if (e.ctrlKey && e.key === "a") {
+      e.preventDefault();
+      (e.target as HTMLTextAreaElement).select();
+    }
   }, [handleFormat]);
 
   // 粘贴时自动格式化 JSON
@@ -89,25 +101,18 @@ export function JsonFormatter() {
       const parsed = JSON.parse(pastedText);
       const formatted = JSON.stringify(parsed, null, 2);
       e.preventDefault();
-      updateActiveTab({ input: formatted });
+      if (activeTab) {
+        updateTab(activeTab.id, { input: formatted });
+      }
     } catch {
       // 不是有效 JSON，使用默认粘贴行为
     }
-  }, [updateActiveTab]);
+  }, [updateTab, activeTab]);
 
-  const addTab = useCallback(() => {
-    const newTab: JsonTab = { id: createId(), name: "标签 " + (tabs.length + 1), input: "", fontSize: activeTab.fontSize };
-    setTabs(prev => [...prev, newTab]);
-    setActiveTabId(newTab.id);
-  }, [tabs.length, activeTab.fontSize]);
-
-  const closeTab = useCallback((e: React.MouseEvent, tabId: string) => {
+  const handleCloseTab = useCallback((e: React.MouseEvent, tabId: string) => {
     e.stopPropagation();
-    if (tabs.length <= 1) return;
-    const newTabs = tabs.filter(t => t.id !== tabId);
-    setTabs(newTabs);
-    if (activeTabId === tabId && newTabs.length > 0) setActiveTabId(newTabs[0].id);
-  }, [tabs, activeTabId]);
+    closeTab(tabId);
+  }, [closeTab]);
 
   return (
     <div className="flex flex-col h-full">
@@ -116,24 +121,24 @@ export function JsonFormatter() {
           <CardHeader className="flex-shrink-0 py-1 px-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-xs font-medium flex items-center gap-1">
-                <FileJson className="w-3 h-3" />输入<span className="text-muted-foreground text-[10px]">{activeTab.input.length}</span>
+                <FileJson className="w-3 h-3" />输入<span className="text-muted-foreground text-[10px]">{activeTab?.input.length}</span>
               </CardTitle>
               <div className="flex items-center gap-0.5">
                 <Button variant="outline" size="sm" onClick={handleFormat} className="h-5 px-1.5 text-[10px]">格式化</Button>
                 <Button variant="outline" size="sm" onClick={handleCompress} className="h-5 px-1.5 text-[10px]">压缩</Button>
-                <Button variant="ghost" size="sm" onClick={() => handleCopy(activeTab.input)} className="h-5 px-1.5 text-[10px]"><Copy className="w-3 h-3" /></Button>
+                <Button variant="ghost" size="sm" onClick={() => handleCopy(activeTab?.input || "")} className="h-5 px-1.5 text-[10px]"><Copy className="w-3 h-3" /></Button>
                 <Button variant="ghost" size="sm" onClick={handleClear} className="h-5 px-1.5 text-[10px]"><Trash2 className="w-3 h-3" /></Button>
               </div>
             </div>
           </CardHeader>
           <CardContent className="flex-1 py-0 px-1">
             <textarea
-              value={activeTab.input}
-              onChange={(e) => updateActiveTab({ input: e.target.value })}
+              value={activeTab?.input || ""}
+              onChange={(e) => updateTab(activeTab.id, { input: e.target.value })}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               className="w-full h-full resize-none border rounded p-1.5 font-mono text-xs bg-muted/20 focus:outline-none focus:ring-1 focus:ring-primary"
-              style={{ fontSize: activeTab.fontSize, lineHeight: "1.3" }}
+              style={{ fontSize: activeTab?.fontSize || 13, lineHeight: "1.3" }}
               placeholder="在此粘贴 JSON..."
             />
           </CardContent>
@@ -142,11 +147,11 @@ export function JsonFormatter() {
               {tabs.map(tab => (
                 <button 
                   key={tab.id} 
-                  onClick={() => setActiveTabId(tab.id)}
+                  onClick={() => setActiveTab(tab.id)}
                   className={"flex items-center gap-0.5 px-2 py-0.5 text-xs rounded transition-colors " + (tab.id === activeTabId ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground")}
                 >
                   <span className="truncate max-w-[60px]">{tab.name}</span>
-                  <X className="w-2.5 h-2.5 hover:text-destructive cursor-pointer opacity-60 hover:opacity-100" onClick={(e) => closeTab(e, tab.id)} />
+                  <X className="w-2.5 h-2.5 hover:text-destructive cursor-pointer opacity-60 hover:opacity-100" onClick={(e) => handleCloseTab(e, tab.id)} />
                 </button>
               ))}
               <button onClick={addTab} className="flex items-center justify-center w-5 h-5 rounded hover:bg-muted transition-colors">
@@ -166,7 +171,7 @@ export function JsonFormatter() {
           </CardHeader>
           <CardContent className="flex-1 py-0 px-0 overflow-auto">
             {parseResult.success ? (
-              <div style={{ fontSize: activeTab.fontSize }} className="h-full">
+              <div style={{ fontSize: activeTab?.fontSize || 13 }} className="h-full">
                 <JsonRenderer data={parseResult.data as object} />
               </div>
             ) : parseResult.error ? (
@@ -185,7 +190,7 @@ export function JsonFormatter() {
               <Type className="w-3 h-3 text-muted-foreground" />
               <Input
                 type="number"
-                value={activeTab.fontSize}
+                value={activeTab?.fontSize || 13}
                 onChange={handleFontSizeChange}
                 className="h-6 w-16 text-xs"
                 min={10}

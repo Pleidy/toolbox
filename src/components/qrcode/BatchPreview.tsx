@@ -23,9 +23,12 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
   const isGeneratingRef = useRef(false);
   const initializedRef = useRef(false);
 
+  // 确保 data 是数组
+  const batchData = batchConfig?.data || [];
+
   // 生成预览
   const generatePreviews = useCallback(async () => {
-    if (batchConfig.data.length === 0) {
+    if (batchData.length === 0) {
       setPreviews([]);
       setGenerating(false);
       return;
@@ -39,8 +42,8 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
 
     const results: { id: string; dataUrl: string }[] = [];
 
-    for (let i = 0; i < batchConfig.data.length; i++) {
-      const item = batchConfig.data[i];
+    for (let i = 0; i < batchData.length; i++) {
+      const item = batchData[i];
       try {
         const dataUrl = await generateQRCode(item.content, configToOptions(config));
         results.push({ id: item.id, dataUrl });
@@ -48,13 +51,13 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
         console.error('Failed to generate QR code:', error);
       }
 
-      setProgress(((i + 1) / batchConfig.data.length) * 100);
+      setProgress(((i + 1) / batchData.length) * 100);
     }
 
     setPreviews(results);
     setGenerating(false);
     isGeneratingRef.current = false;
-  }, [batchConfig.data, config]);
+  }, [batchData, config]);
 
   // 初始化时生成预览
   useEffect(() => {
@@ -69,7 +72,7 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
     if (initializedRef.current) {
       generatePreviews();
     }
-  }, [batchConfig.data.length]);
+  }, [batchData.length]);
 
   // 刷新按钮
   const handleRefresh = () => {
@@ -84,7 +87,7 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
     setPreviews(prev => prev.filter(p => p.id !== id));
   };
 
-  if (batchConfig.data.length === 0 && previews.length === 0) {
+  if (batchData.length === 0 && previews.length === 0) {
     return (
       <Card className="h-full">
         <CardContent className="flex items-center justify-center h-full">
@@ -102,15 +105,15 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
         {/* 工具栏：刷新按钮和数量 */}
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-muted-foreground">
-            {batchConfig.data.length} 个二维码
-            {batchConfig.data.filter(item => item.used).length > 0 && (
+            {batchData.length} 个二维码
+            {batchData.filter(item => item.used).length > 0 && (
               <span className="ml-2 text-green-600 dark:text-green-400">
-                ({batchConfig.data.filter(item => item.used).length} 已标记)
+                ({batchData.filter(item => item.used).length} 已标记)
               </span>
             )}
           </span>
           <div className="flex items-center gap-1">
-            {batchConfig.data.some(item => item.used) && (
+            {batchData.some(item => item.used) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -162,7 +165,7 @@ export function BatchPreview({ config, columns = 4, qrSize = 150 }: BatchPreview
           style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
         >
           {previews.map((preview, index) => {
-            const item = batchConfig.data.find(i => i.id === preview.id);
+            const item = batchData.find(i => i.id === preview.id);
             // 如果 item 不存在（已被删除），跳过渲染
             if (!item) return null;
 

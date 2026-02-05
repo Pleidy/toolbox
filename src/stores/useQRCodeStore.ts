@@ -187,6 +187,47 @@ export const useQRCodeStore = create<QRCodeState>()(
         previewSettings: state.previewSettings,
       }),
       version: 1,
+      // 合并恢复的状态与默认状态，确保所有字段都存在
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<QRCodeState> || {};
+        return {
+          ...currentState,
+          ...persisted,
+          // 确保 batchConfig 正确合并，data 始终是数组
+          batchConfig: {
+            ...currentState.batchConfig,
+            ...(persisted.batchConfig || {}),
+            data: currentState.batchConfig.data, // data 不持久化，始终使用默认空数组
+          },
+          // 确保 exportSettings 正确合并
+          exportSettings: {
+            ...currentState.exportSettings,
+            ...(persisted.exportSettings || {}),
+          },
+          // 确保 previewSettings 正确合并
+          previewSettings: {
+            ...currentState.previewSettings,
+            ...(persisted.previewSettings || {}),
+          },
+          // 确保 singleConfig 正确合并
+          singleConfig: {
+            ...currentState.singleConfig,
+            ...(persisted.singleConfig || {}),
+          },
+        };
+      },
+      // 添加错误处理，防止损坏的状态导致空白页
+      onRehydrateStorage: () => (_state, error) => {
+        if (error) {
+          console.error('Failed to rehydrate state:', error);
+          // 清除损坏的存储
+          try {
+            localStorage.removeItem('qrcode-toolbox-config');
+          } catch (e) {
+            console.error('Failed to clear storage:', e);
+          }
+        }
+      },
     }
   )
 );

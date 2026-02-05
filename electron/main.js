@@ -26,8 +26,26 @@ function createWindow() {
     win.loadURL('http://localhost:1420');
     win.webContents.openDevTools();
   } else {
-    // 生产模式加载本地文件（使用 process.resourcesPath）
-    const distPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'dist', 'index.html');
+    // 生产模式加载本地文件
+    // 尝试多个可能的路径
+    const possiblePaths = [
+      path.join(__dirname, '..', 'dist', 'index.html'),
+      path.join(process.resourcesPath, 'app.asar.unpacked', 'dist', 'index.html'),
+      path.join(process.resourcesPath, 'dist', 'index.html'),
+      path.join(app.getAppPath(), 'dist', 'index.html'),
+    ];
+
+    let distPath = possiblePaths[0];
+    for (const p of possiblePaths) {
+      try {
+        require('fs').accessSync(p);
+        distPath = p;
+        break;
+      } catch (e) {
+        // 继续尝试下一个路径
+      }
+    }
+
     console.log('Loading from:', distPath);
     win.loadFile(distPath);
   }
