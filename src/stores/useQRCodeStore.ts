@@ -192,7 +192,7 @@ export const useQRCodeStore = create<QRCodeState>()(
       })),
     }),
     {
-      name: 'qrcode-toolbox-config',
+      name: 'toolbox-config',
       partialize: (state) => ({
         singleConfig: state.singleConfig,
         batchConfig: {

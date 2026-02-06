@@ -108,7 +108,7 @@ export const useJsonStore = create<JsonState>()(
       },
     }),
     {
-      name: 'json-toolbox-storage',
+      name: 'toolbox-json-storage',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         tabs: state.tabs,

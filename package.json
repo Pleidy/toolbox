@@ -1,11 +1,11 @@
 {
-  "name": "qrcode-toolbox",
+  "name": "toolbox",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "main": "electron/main.js",
-  "description": "一个功能强大的二维码工具，支持生成、解码、批量处理等功能",
-  "author": "QRCode Toolbox",
+  "description": "一个功能强大的工具箱，支持二维码生成、解码、JSON 格式化等功能",
+  "author": "Toolbox",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && node fix-paths.js",
@@ -55,7 +55,7 @@
     "vite": "^5.0.0"
   },
   "build": {
-    "appId": "com.qrcode-toolbox.app",
+    "appId": "com.toolbox.app",
     "productName": "Toolbox",
     "directories": {
       "output": "release"
