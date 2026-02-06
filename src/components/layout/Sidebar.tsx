@@ -1,5 +1,7 @@
-import { QrCode, Settings, LayoutGrid, FileJson, Sun, Moon, ChevronLeft } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { QrCode, Settings, LayoutGrid, FileJson, Sun, Moon, Search, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
 import { Switch } from '../ui/Switch';
 import { useAppStore } from '@/stores';
 import { useTheme } from 'next-themes';
@@ -13,6 +15,7 @@ interface SidebarProps {
 export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
   const { sidebarOpen, theme, setSidebarOpen } = useAppStore();
   const { setTheme: setNextTheme } = useTheme();
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleThemeChange = (checked: boolean) => {
     const newTheme = checked ? 'dark' : 'light';
@@ -26,59 +29,144 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
     { id: 'tools', name: '更多工具', icon: LayoutGrid },
   ];
 
+  // 过滤工具
+  const filteredTools = useMemo(() => {
+    if (!searchQuery.trim()) return tools;
+    return tools.filter(tool => 
+      tool.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [searchQuery, tools]);
+
+  // 获取显示的工具列表
+  const displayTools = searchQuery.trim() 
+    ? tools.map(tool => ({
+        ...tool,
+        isHidden: !filteredTools.some(t => t.id === tool.id)
+      }))
+    : tools.map(tool => ({ ...tool, isHidden: false }));
+
+  const clearSearch = () => setSearchQuery('');
+
+  // 收缩状态：只显示图标
+  const isCollapsed = !sidebarOpen;
+
   return (
     <aside
       className={cn(
-        "border-r bg-card transition-all duration-300 flex flex-col",
-        sidebarOpen ? "w-64" : "w-0 overflow-hidden"
+        "border-r bg-card transition-all duration-300 flex flex-col absolute top-0 left-0 h-full z-40",
+        isCollapsed ? "w-12" : "w-64"
       )}
     >
-      <div className="p-4 border-b">
-        <h2 className="font-semibold text-lg">Toolbox</h2>
-      </div>
+      {/* 标题区域 */}
+      {!isCollapsed && (
+        <div className="p-4 border-b">
+          <h2 className="font-semibold text-lg">Toolbox</h2>
+          
+          {/* 搜索框 */}
+          <div className="mt-3 relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="搜索工具..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 pr-8 h-8 text-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={clearSearch}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       
-      <nav className="flex-1 p-4 space-y-2">
-        {tools.map((tool) => {
+      {/* 工具列表 */}
+      <nav className={cn("flex-1 p-2 space-y-1", isCollapsed && "pt-2")}>
+        {displayTools.map((tool) => {
           const Icon = tool.icon;
           return (
-            <Button
+            <div
               key={tool.id}
-              variant={activeTool === tool.id ? "secondary" : "ghost"}
-              className="w-full justify-start"
-              onClick={() => onToolChange(tool.id)}
+              className={cn(
+                "transition-all duration-200",
+                isCollapsed ? "h-10" : tool.isHidden && searchQuery ? "h-10" : "h-auto"
+              )}
             >
-              <Icon className="mr-2 h-4 w-4" />
-              {tool.name}
-            </Button>
+              <Button
+                variant={activeTool === tool.id ? "secondary" : "ghost"}
+                className={cn(
+                  "w-full transition-all duration-200 h-10",
+                  isCollapsed ? "justify-center px-0" : "justify-start"
+                )}
+                onClick={() => onToolChange(tool.id)}
+                title={isCollapsed ? tool.name : tool.isHidden ? tool.name : undefined}
+              >
+                <Icon className={cn("h-4 w-4", isCollapsed ? "" : "mr-2")} />
+                {!(isCollapsed || (tool.isHidden && searchQuery)) && tool.name}
+              </Button>
+            </div>
           );
         })}
       </nav>
       
-      <div className="mt-auto pt-4 border-t relative">
-        {/* 侧边栏收缩按钮 - 右下角 */}
+      {/* 底部区域 */}
+      <div className={cn("p-2 border-t relative", isCollapsed && "pt-2")}>
+        {/* 侧边栏展开/收缩按钮 - 右下角 */}
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setSidebarOpen(false)}
-          className="absolute -bottom-px right-0 z-10 rounded-tr-lg rounded-bl-none bg-background border-t border-r border-border/50 shadow-md hover:bg-accent transition-colors"
-          title="收起侧边栏"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className={cn(
+            "absolute -bottom-px right-0 z-10 transition-colors",
+            isCollapsed 
+              ? "rounded-tl-lg rounded-br-none bg-background border-t border-l border-border/50 shadow-md hover:bg-accent"
+              : "rounded-tr-lg rounded-bl-none bg-background border-t border-r border-border/50 shadow-md hover:bg-accent"
+          )}
+          title={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
         >
-          <ChevronLeft className="h-4 w-4 text-foreground" />
+          {isCollapsed ? (
+            <PanelLeftOpen className="h-4 w-4 text-foreground" />
+          ) : (
+            <PanelLeftClose className="h-4 w-4 text-foreground" />
+          )}
         </Button>
         
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <Sun className="h-4 w-4" />
-            <Switch
-              checked={theme === 'dark'}
-              onCheckedChange={handleThemeChange}
-            />
-            <Moon className="h-4 w-4" />
-          </div>
+        {/* 主题切换 */}
+        <div className={cn("flex items-center mb-2", isCollapsed ? "justify-center" : "justify-between")}>
+          {isCollapsed ? (
+            <div className="flex flex-col items-center space-y-1">
+              <Sun className="h-3 w-3" />
+              <Switch
+                checked={theme === 'dark'}
+                onCheckedChange={handleThemeChange}
+                className="scale-75"
+              />
+              <Moon className="h-3 w-3" />
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center space-x-2">
+                <Sun className="h-4 w-4" />
+                <Switch
+                  checked={theme === 'dark'}
+                  onCheckedChange={handleThemeChange}
+                />
+                <Moon className="h-4 w-4" />
+              </div>
+            </>
+          )}
         </div>
-        <Button variant="ghost" className="w-full justify-start">
-          <Settings className="mr-2 h-4 w-4" />
-          设置
+        
+        {/* 设置按钮 */}
+        <Button 
+          variant="ghost" 
+          className={cn("w-full h-10", isCollapsed && "justify-center px-0")}
+        >
+          <Settings className={cn("h-4 w-4", isCollapsed ? "" : "mr-2")} />
+          {!isCollapsed && "设置"}
         </Button>
       </div>
     </aside>
