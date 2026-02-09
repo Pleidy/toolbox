@@ -11,6 +11,6 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   theme: 'system',
   setTheme: (theme) => set({ theme }),
-  sidebarOpen: true,
+  sidebarOpen: false,
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
 }));
