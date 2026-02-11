@@ -2,6 +2,7 @@ import { useState, Component, ErrorInfo, ReactNode } from 'react';
 import { ThemeProvider } from 'next-themes';
 import { MainLayout } from '@/components/layout';
 import { QRCodeGenerator } from '@/components/qrcode';
+import { Encoder } from '@/components/encoder/Encoder';
 import { JsonFormatter } from '@/components/json/JsonFormatter';
 
 // 错误边界组件，防止渲染错误导致空白页
@@ -65,6 +66,8 @@ function App() {
         <MainLayout activeTool={activeTool} onToolChange={setActiveTool}>
           {activeTool === 'qrcode' ? (
             <QRCodeGenerator />
+          ) : activeTool === 'encoder' ? (
+            <Encoder />
           ) : activeTool === 'json' ? (
             <JsonFormatter />
           ) : (
