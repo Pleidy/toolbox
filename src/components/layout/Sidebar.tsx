@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { QrCode, Settings, LayoutGrid, FileJson, Sun, Moon, Search, X, PanelLeftClose, PanelLeftOpen, Code } from 'lucide-react';
+import { QrCode, Settings, LayoutGrid, FileJson, Sun, Moon, Search, X, PanelLeftClose, PanelLeftOpen, Code, Image } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Switch } from '../ui/Switch';
@@ -27,6 +27,7 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
     { id: 'qrcode', name: '二维码生成', icon: QrCode },
     { id: 'encoder', name: '编码转换', icon: Code },
     { id: 'json', name: 'JSON 格式化', icon: FileJson },
+    { id: 'image', name: '图片工具', icon: Image },
     { id: 'tools', name: '更多工具', icon: LayoutGrid },
   ];
 

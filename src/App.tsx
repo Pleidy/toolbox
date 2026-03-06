@@ -4,6 +4,7 @@ import { MainLayout } from '@/components/layout';
 import { QRCodeGenerator } from '@/components/qrcode';
 import { Encoder } from '@/components/encoder/Encoder';
 import { JsonFormatter } from '@/components/json/JsonFormatter';
+import { ImageTool } from '@/components/image/ImageTool';
 
 // 错误边界组件，防止渲染错误导致空白页
 interface ErrorBoundaryState {
@@ -70,6 +71,8 @@ function App() {
             <Encoder />
           ) : activeTool === 'json' ? (
             <JsonFormatter />
+          ) : activeTool === 'image' ? (
+            <ImageTool />
           ) : (
             <div className="flex items-center justify-center h-full">
               <p className="text-muted-foreground">更多工具即将推出...</p>
