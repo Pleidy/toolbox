@@ -14,6 +14,18 @@ import { BatchPreview } from './BatchPreview';
 import { QRCodeDecoder } from './QRCodeDecoder';
 import { Tabs, TabsList, TabsTrigger } from '../ui/Tabs';
 
+// 解析输入行，提取 content 和 label
+function parseContentLabel(line: string): { content: string; label: string } {
+  const firstSpaceIndex = line.indexOf(' ');
+  if (firstSpaceIndex === -1) {
+    return { content: line.trim(), label: '' };
+  }
+  return {
+    content: line.substring(0, firstSpaceIndex).trim(),
+    label: line.substring(firstSpaceIndex + 1).trim()
+  };
+}
+
 export function QRCodeGenerator() {
   const [activeTab, setActiveTab] = useState<'generate' | 'decode'>('generate');
 
@@ -61,13 +73,19 @@ function GenerateMode() {
   // 从 localStorage 恢复上次的内容
   // 注意: inputText 现在从 store 的 persist 中恢复，不再需要手动 localStorage 读取
 
-  // 解析输入的内容列表 (使用 useMemo 避免不必要的重新计算)
-  const contentLines = useMemo(() => {
+  // 解析输入的内容列表，返回包含 content 和 label 的对象数组
+  const parsedLines = useMemo(() => {
     return inputText
       .split('\n')
       .map((line: string) => line.trim())
-      .filter((line: string) => line.length > 0);
+      .filter((line: string) => line.length > 0)
+      .map((line: string) => parseContentLabel(line));
   }, [inputText]);
+
+  // 保持对纯 content 列表的兼容（用于自动检测模式）
+  const contentLines = useMemo(() => {
+    return parsedLines.map(p => p.content);
+  }, [parsedLines]);
 
   // 自动检测模式
   const [detectedMode, setDetectedMode] = useState<'single' | 'batch'>('single');
@@ -100,7 +118,7 @@ function GenerateMode() {
           const currentContents = batchData.map((d: BatchItem) => d.content);
           if (JSON.stringify(lines) !== JSON.stringify(currentContents)) {
             clearBatchItems();
-            lines.forEach((line: string) => addBatchItem(line));
+            parsedLines.forEach((parsed) => addBatchItem(parsed.content, parsed.label));
           }
         }
       }
@@ -109,15 +127,15 @@ function GenerateMode() {
 
   // 确定当前使用的模式
   const currentMode = autoMode ? detectedMode : manualMode;
-
   // 处理单个内容更新
   useEffect(() => {
     if (currentMode === 'single') {
       if (contentLines.length > 0) {
-        setSingleConfig({ content: contentLines[0] });
+        const parsed = parseContentLabel(contentLines[0]);
+        setSingleConfig({ content: parsed.content, label: parsed.label || undefined });
       } else {
         // 清空输入时也要清空配置
-        setSingleConfig({ content: '' });
+        setSingleConfig({ content: '', label: undefined });
       }
     }
   }, [currentMode, contentLines, setSingleConfig]);

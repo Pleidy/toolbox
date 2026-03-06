@@ -41,7 +41,7 @@ interface QRCodeState {
   // Batch generation state
   batchConfig: BatchConfig;
   setBatchConfig: (config: Partial<BatchConfig>) => void;
-  addBatchItem: (content: string) => void;
+  addBatchItem: (content: string, label?: string) => void;
   removeBatchItem: (id: string) => void;
   updateBatchItem: (id: string, item: Partial<BatchItem>) => void;
   clearBatchItems: () => void;
@@ -100,7 +100,7 @@ export const useQRCodeStore = create<QRCodeState>()(
       setBatchConfig: (config) => set((state) => ({
         batchConfig: { ...state.batchConfig, ...config }
       })),
-      addBatchItem: (content) => set((state) => ({
+      addBatchItem: (content, label) => set((state) => ({
         batchConfig: {
           ...state.batchConfig,
           data: [
@@ -108,6 +108,7 @@ export const useQRCodeStore = create<QRCodeState>()(
             {
               id: generateId(),
               content,
+              label: label || undefined,
               status: 'pending',
             }
           ]

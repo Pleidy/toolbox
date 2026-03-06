@@ -238,9 +238,16 @@ export function BatchPreview({ config, columns = 4, qrSize = 150, rowHeight = 18
                       </div>
                     )}
                   </div>
-                  <span className="mt-0.5 text-[10px] text-muted-foreground truncate max-w-full px-1">
-                    {item.content}
-                  </span>
+                  {/* 显示标签（优先）或内容 */}
+                  {item.label ? (
+                    <div className="mt-0.5 text-[10px] font-medium text-foreground text-center truncate max-w-full px-1">
+                      {item.label}
+                    </div>
+                  ) : (
+                    <span className="mt-0.5 text-[10px] text-muted-foreground truncate max-w-full px-1">
+                      {item.content}
+                    </span>
+                  )}
                 </div>
                 {/* 删除按钮 - 右上角 */}
                 <Button

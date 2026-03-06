@@ -32,11 +32,19 @@ export async function importFromText(file: File): Promise<string[]> {
 export async function exportQRCode(
   dataUrl: string,
   filename: string,
-  format: 'png' | 'jpeg'
+  format: 'png' | 'jpeg',
+  label?: string
 ): Promise<void> {
-  // Convert dataUrl to Blob
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
+  let blob: Blob;
+  
+  if (label) {
+    // Compose QR code with label on canvas
+    blob = await composeQRCodeWithLabel(dataUrl, label);
+  } else {
+    // Convert dataUrl to Blob directly
+    const response = await fetch(dataUrl);
+    blob = await response.blob();
+  }
   
   // Add file extension
   const ext = format === 'png' ? 'png' : 'jpg';
@@ -80,7 +88,7 @@ export function generateFilename(pattern: string, index: number, content: string
 
 // Export batch as PDF (with adaptive grid layout)
 export async function exportBatchAsPDF(
-  qrCodes: { dataUrl: string; content: string }[],
+  qrCodes: { dataUrl: string; content: string; label?: string }[],
   options: { 
     title?: string; 
     pageSize?: { width: number; height: number };
@@ -142,7 +150,7 @@ export async function exportBatchAsPDF(
       const index = page * actualItemsPerPage + i;
       if (index >= qrCodes.length) break;
       
-      const { dataUrl, content } = qrCodes[index];
+      const { dataUrl, content, label } = qrCodes[index];
       
       const col = i % cols;
       const row = Math.floor(i / cols);
@@ -171,6 +179,14 @@ export async function exportBatchAsPDF(
         doc.setFontSize(Math.min(5, finalQrSize / 6));
         doc.text(contentPreview, x + finalQrSize / 2, y + finalQrSize + 5, { align: 'center' });
         
+        // Add label below content preview if present
+        if (label) {
+          doc.setFontSize(5);
+          doc.setFont('helvetica', 'bold');
+          const labelText = label.length > 15 ? label.substring(0, 15) + '...' : label;
+          doc.text(labelText, x + finalQrSize / 2, y + finalQrSize + 8, { align: 'center' });
+        }
+        
       } catch (error) {
         console.error('Failed to add QR code image:', error);
       }
@@ -182,7 +198,7 @@ export async function exportBatchAsPDF(
 
 // Export batch as single image (grid collage)
 export async function exportBatchAsCollage(
-  qrCodes: { dataUrl: string; content: string }[],
+  qrCodes: { dataUrl: string; content: string; label?: string }[],
   options: { columns?: number; cellSize?: number; gap?: number; title?: string } = {}
 ): Promise<void> {
   const { columns = 3, cellSize = 300, gap = 20, title = 'QR Codes' } = options;
@@ -212,7 +228,7 @@ export async function exportBatchAsCollage(
   
   // Draw each QR code
   for (let i = 0; i < qrCodes.length; i++) {
-    const { dataUrl } = qrCodes[i];
+    const { dataUrl, label } = qrCodes[i];
     
     const col = i % columns;
     const row = Math.floor(i / columns);
@@ -232,6 +248,13 @@ export async function exportBatchAsCollage(
       ctx.font = '14px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(`#${i + 1}`, x + cellSize / 2, y + cellSize + 20);
+      
+      // Add label below QR code if present
+      if (label) {
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillText(label, x + cellSize / 2, y + cellSize + 38);
+      }
     } catch (error) {
       console.error('Failed to draw QR code:', error);
     }
@@ -262,5 +285,44 @@ function loadImage(blob: Blob): Promise<HTMLImageElement> {
     img.onload = () => resolve(img);
     img.onerror = reject;
     img.src = URL.createObjectURL(blob);
+  });
+}
+
+// Helper function to compose QR code with label on canvas
+async function composeQRCodeWithLabel(dataUrl: string, label: string): Promise<Blob> {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  const img = await loadImage(blob);
+  
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  if (!ctx) throw new Error('Could not get canvas context');
+  
+  // Calculate canvas size - add space for label below
+  const labelHeight = 30; // pixels for label
+  const padding = 10;
+  canvas.width = img.width;
+  canvas.height = img.height + labelHeight + padding;
+  
+  // Fill background with white
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw QR code
+  ctx.drawImage(img, 0, 0);
+  
+  // Draw label below QR code
+  ctx.fillStyle = '#000000';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, img.width / 2, img.height + labelHeight / 2 + 5);
+  
+  // Convert to blob
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((result) => {
+      if (result) resolve(result);
+      else reject(new Error('Failed to create blob'));
+    }, 'image/png');
   });
 }

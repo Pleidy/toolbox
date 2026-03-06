@@ -120,6 +120,11 @@ export function QRCodePreview({ config, className }: QRCodePreviewProps) {
                 }}
               />
             </div>
+            {config.label && (
+              <div className="mt-2 text-sm font-medium text-foreground text-center">
+                {config.label}
+              </div>
+            )}
             <p className="text-sm text-muted-foreground">
               尺寸: {config.width}x{config.width}px
             </p>

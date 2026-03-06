@@ -1,5 +1,6 @@
 export interface QRCodeConfig {
   content: string;
+  label?: string;  // 空格后的标签文字，显示在二维码下方
   width: number;
   margin: number;
   errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H';
@@ -14,6 +15,7 @@ export interface QRCodeConfig {
 export interface BatchItem {
   id: string;
   content: string;
+  label?: string;
   customStyle?: Partial<QRCodeConfig>;
   filename?: string;
   status: 'pending' | 'generating' | 'completed' | 'failed';

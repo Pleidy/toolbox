@@ -24,7 +24,7 @@ export function ExportPanel({ dataUrl, config, mode }: ExportPanelProps) {
       // 延迟执行导出，确保状态已更新
       setTimeout(() => {
         if (mode === 'single') {
-          handleSingleExport(dataUrl);
+          handleSingleExport(dataUrl, config.label);
         } else {
           handleBatchExport(format, itemsPerPage, columns);
         }
@@ -35,11 +35,11 @@ export function ExportPanel({ dataUrl, config, mode }: ExportPanelProps) {
     return () => window.removeEventListener('qrcode-export', handleExport as EventListener);
   }, [mode, dataUrl, batchData, config]);
 
-  const handleSingleExport = async (url: string) => {
+  const handleSingleExport = async (url: string, label?: string) => {
     if (!url) return;
 
     try {
-      await exportQRCode(url, 'qrcode', 'png');
+      await exportQRCode(url, 'qrcode', 'png', label);
     } catch (error) {
       console.error('Export failed:', error);
     }
@@ -57,7 +57,7 @@ export function ExportPanel({ dataUrl, config, mode }: ExportPanelProps) {
 
     try {
       // First generate all QR codes
-      const qrCodesWithContent: { dataUrl: string; content: string }[] = [];
+      const qrCodesWithContent: { dataUrl: string; content: string; label?: string }[] = [];
 
       for (let i = 0; i < batchData.length; i++) {
         const item = batchData[i];
@@ -74,7 +74,7 @@ export function ExportPanel({ dataUrl, config, mode }: ExportPanelProps) {
         const { generateQRCode } = await import('@/lib/qrcode');
         const qrDataUrl = await generateQRCode(item.content, options);
 
-        qrCodesWithContent.push({ dataUrl: qrDataUrl, content: item.content });
+        qrCodesWithContent.push({ dataUrl: qrDataUrl, content: item.content, label: item.label });
         setProgress(((i + 1) / batchData.length) * 50);
       }
 
