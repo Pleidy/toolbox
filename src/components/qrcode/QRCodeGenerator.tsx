@@ -16,14 +16,30 @@ import { Tabs, TabsList, TabsTrigger } from '../ui/Tabs';
 import { ExportPanel } from './ExportPanel';
 
 // 解析输入行，提取 content 和 label
+// 支持空格和 Tab 作为分隔符
 function parseContentLabel(line: string): { content: string; label: string } {
-  const firstSpaceIndex = line.indexOf(' ');
-  if (firstSpaceIndex === -1) {
+  // 查找第一个空格或 Tab 的位置
+  const spaceIndex = line.indexOf(' ');
+  const tabIndex = line.indexOf('\t');
+
+  // 找到最先出现的分隔符
+  let separatorIndex = -1;
+  if (spaceIndex === -1 && tabIndex === -1) {
+    separatorIndex = -1;
+  } else if (spaceIndex === -1) {
+    separatorIndex = tabIndex;
+  } else if (tabIndex === -1) {
+    separatorIndex = spaceIndex;
+  } else {
+    separatorIndex = Math.min(spaceIndex, tabIndex);
+  }
+
+  if (separatorIndex === -1) {
     return { content: line.trim(), label: '' };
   }
   return {
-    content: line.substring(0, firstSpaceIndex).trim(),
-    label: line.substring(firstSpaceIndex + 1).trim()
+    content: line.substring(0, separatorIndex).trim(),
+    label: line.substring(separatorIndex + 1).trim()
   };
 }
 

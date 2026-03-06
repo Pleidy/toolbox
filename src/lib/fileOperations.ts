@@ -179,24 +179,25 @@ export async function exportBatchAsPDF(
         // Add QR code image
         doc.addImage(base64, 'PNG', x, y, finalQrSize, finalQrSize);
 
-        // Add index number - 字体增大
-        doc.setFontSize(Math.max(8, Math.min(10, finalQrSize / 4)));
+        // Add index number
+        doc.setFontSize(Math.max(7, Math.min(9, finalQrSize / 5)));
         doc.setFont('helvetica', 'normal');
         const indexText = `#${index + 1}`;
         doc.text(indexText, x, y + finalQrSize + 4);
 
-        // Add content preview - 字体增大
-        const maxChars = Math.floor(finalQrSize / 2);
-        const contentPreview = content.length > maxChars ? content.substring(0, maxChars) + '...' : content;
-        doc.setFontSize(Math.max(7, Math.min(9, finalQrSize / 5)));
-        doc.text(contentPreview, x + finalQrSize / 2, y + finalQrSize + 8, { align: 'center' });
+        // Add content - 全量显示，自动换行
+        doc.setFontSize(Math.max(6, Math.min(8, finalQrSize / 6)));
+        const maxWidth = cellWidth - gap;
+        const contentLines = doc.splitTextToSize(content, maxWidth);
+        doc.text(contentLines, x + finalQrSize / 2, y + finalQrSize + 8, { align: 'center' });
 
-        // Add label below content preview if present - 字体增大
+        // Add label below content if present - 全量显示
         if (label) {
-          doc.setFontSize(Math.max(7, Math.min(9, finalQrSize / 5)));
+          const contentHeight = contentLines.length * 3; // 每行约3mm
+          doc.setFontSize(Math.max(6, Math.min(8, finalQrSize / 6)));
           doc.setFont('helvetica', 'bold');
-          const labelText = label.length > 20 ? label.substring(0, 20) + '...' : label;
-          doc.text(labelText, x + finalQrSize / 2, y + finalQrSize + 13, { align: 'center' });
+          const labelLines = doc.splitTextToSize(label, maxWidth);
+          doc.text(labelLines, x + finalQrSize / 2, y + finalQrSize + 8 + contentHeight + 1, { align: 'center' });
         }
 
       } catch (error) {
