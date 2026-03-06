@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import jsQR from 'jsqr';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { Upload, ScanLine, Copy, FileArchive, Loader2 } from 'lucide-react';
+import { Upload, ScanLine, Copy, FileArchive, Loader2, Clipboard } from 'lucide-react';
 
 interface DecodeItem {
   id: string;
@@ -138,6 +138,55 @@ export function QRCodeDecoder() {
     setDecoding(false);
   }, [decodeImage]);
 
+  // 处理粘贴事件
+  const handlePaste = useCallback(async (e: ClipboardEvent) => {
+    const clipboardItems = e.clipboardData?.items;
+    if (!clipboardItems) return;
+
+    const imageFiles: File[] = [];
+    for (let i = 0; i < clipboardItems.length; i++) {
+      const item = clipboardItems[i];
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          imageFiles.push(file);
+        }
+      }
+    }
+
+    if (imageFiles.length === 0) return;
+
+    e.preventDefault();
+    setDecoding(true);
+    setItems([]);
+    setProgress(0);
+
+    const results: DecodeItem[] = [];
+    let completed = 0;
+
+    for (const file of imageFiles) {
+      const result = await decodeImage(file);
+      results.push({
+        id: `${Date.now()}-${completed}`,
+        fileName: `粘贴图片 ${completed + 1}`,
+        data: result || undefined,
+        error: result ? undefined : '未检测到二维码',
+        timestamp: Date.now(),
+      });
+      completed++;
+      setProgress(Math.round((completed / imageFiles.length) * 100));
+    }
+
+    setItems(results);
+    setDecoding(false);
+  }, [decodeImage]);
+
+  // 监听全局粘贴事件
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [handlePaste]);
+
   const copyAll = async () => {
     const text = items
       .filter(item => item.data)
@@ -200,6 +249,10 @@ export function QRCodeDecoder() {
                   <Upload className="h-8 w-8 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">点击或拖拽上传图片</p>
                   <p className="text-xs text-muted-foreground">支持多张图片批量解析</p>
+                  <div className="flex items-center gap-1 mt-2 text-xs text-primary">
+                    <Clipboard className="h-3 w-3" />
+                    <span>支持 Ctrl+V 粘贴图片</span>
+                  </div>
                 </div>
               )}
             </div>
