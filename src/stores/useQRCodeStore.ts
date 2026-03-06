@@ -24,6 +24,7 @@ interface ExportSettings {
   format: 'pdf' | 'multiple' | 'collage';
   itemsPerPage: number;
   columns: number;
+  rows: number;
   expanded: boolean;
 }
 
@@ -77,6 +78,7 @@ const defaultExportSettings: ExportSettings = {
   format: 'pdf',
   itemsPerPage: 12,
   columns: 3,
+  rows: 4,
   expanded: false,
 };
 
@@ -221,10 +223,13 @@ export const useQRCodeStore = create<QRCodeState>()(
             ...(persisted.batchConfig || {}),
             data: currentState.batchConfig.data, // data 不持久化，始终使用默认空数组
           },
-          // 确保 exportSettings 正确合并
+          // 确保 exportSettings 正确合并，rows 有默认值
           exportSettings: {
             ...currentState.exportSettings,
             ...(persisted.exportSettings || {}),
+            // 确保 rows 有值（旧版本可能没有这个字段）
+            rows: persisted.exportSettings?.rows || currentState.exportSettings.rows,
+            columns: persisted.exportSettings?.columns || currentState.exportSettings.columns,
           },
           // 确保 previewSettings 正确合并
           previewSettings: {

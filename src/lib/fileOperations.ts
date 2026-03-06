@@ -89,104 +89,116 @@ export function generateFilename(pattern: string, index: number, content: string
 // Export batch as PDF (with adaptive grid layout)
 export async function exportBatchAsPDF(
   qrCodes: { dataUrl: string; content: string; label?: string }[],
-  options: { 
-    title?: string; 
+  options: {
+    title?: string;
     pageSize?: { width: number; height: number };
     itemsPerPage?: number;  // Number of QR codes per page (auto-calculate grid)
+    columns?: number;       // Number of columns per page
+    rows?: number;          // Number of rows per page
     qrSize?: number;        // Size of each QR code in mm (optional, auto-calculate if not set)
   } = {}
 ): Promise<void> {
-  const { 
-    title = 'QR Codes', 
-    pageSize = { width: 210, height: 297 }, // A4 landscape size in mm
-    itemsPerPage = 12,  // Default 12 per page
+  const {
+    title = 'QR Codes',
+    pageSize = { width: 210, height: 297 }, // A4 size in mm
+    columns,
+    rows,
     qrSize              // Optional, will auto-calculate if not provided
   } = options;
-  
+
+  console.log('exportBatchAsPDF options:', { columns, rows, itemsPerPage: options.itemsPerPage });
+
   // Dynamic import to avoid SSR issues
   const { default: jsPDF } = await import('jspdf');
-  
+
   const doc = new jsPDF({
     orientation: pageSize.width > pageSize.height ? 'landscape' : 'portrait',
     unit: 'mm',
     format: [pageSize.width, pageSize.height],
   });
-  
-  // Calculate optimal grid layout based on itemsPerPage
-  // Try to make it as square as possible
-  const cols = Math.ceil(Math.sqrt(itemsPerPage));
-  const rows = Math.ceil(itemsPerPage / cols);
+
+  // Use provided columns/rows directly if available
+  const cols = columns ?? Math.ceil(Math.sqrt(options.itemsPerPage || 12));
+  const rowsPerPage = rows ?? Math.ceil((options.itemsPerPage || 12) / cols);
+
+  console.log('PDF layout:', { cols, rowsPerPage, itemsPerPage: cols * rowsPerPage });
   
   // Calculate QR code size based on page size and grid
-  const margin = 8; // mm
-  const gap = 4; // mm
-  const titleHeight = 8; // mm for page title
-  
+  const margin = 10; // mm - 页边距
+  const gap = 12; // mm - 二维码之间的间距（增大）
+  const titleHeight = 10; // mm for page title
+  const textHeight = 16; // mm - 二维码下方文字区域高度
+  const bottomMargin = 8; // mm - 底部额外边距，确保最后一行标签可见
+
   // Available space for QR codes
   const availableWidth = pageSize.width - margin * 2;
-  const availableHeight = pageSize.height - margin * 2 - titleHeight;
-  
+  const availableHeight = pageSize.height - margin * 2 - titleHeight - bottomMargin;
+
   // Calculate QR size (use provided or auto-calculate)
+  // 每个单元格高度 = 二维码高度 + 文字区域高度
+  // 总高度 = 行数 * 单元格高度 + (行数-1) * 间距
   const finalQrSize = qrSize || Math.min(
     (availableWidth - (cols - 1) * gap) / cols,
-    (availableHeight - (rows - 1) * gap - 10) / rows  // -10 for text space
+    (availableHeight - (rowsPerPage - 1) * gap - textHeight * rowsPerPage) / rowsPerPage
   );
-  
-  const actualItemsPerPage = cols * rows;
+
+  const actualItemsPerPage = cols * rowsPerPage;
   const totalPages = Math.ceil(qrCodes.length / actualItemsPerPage);
-  
+
   for (let page = 0; page < totalPages; page++) {
     if (page > 0) {
       doc.addPage();
     }
-    
+
     // Add page title
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text(`${title} - 第 ${page + 1}/${totalPages} 页 (${cols}×${rows}=${actualItemsPerPage}/页)`, pageSize.width / 2, 5, { align: 'center' });
-    
+    doc.text(`${title} - 第 ${page + 1}/${totalPages} 页 (${cols}×${rowsPerPage}=${actualItemsPerPage}/页)`, pageSize.width / 2, 6, { align: 'center' });
+
     // Draw each QR code on this page
     for (let i = 0; i < actualItemsPerPage; i++) {
       const index = page * actualItemsPerPage + i;
       if (index >= qrCodes.length) break;
-      
+
       const { dataUrl, content, label } = qrCodes[index];
-      
+
       const col = i % cols;
       const row = Math.floor(i / cols);
-      
-      // Calculate position (centered)
-      const x = margin + col * (finalQrSize + gap);
-      const y = margin + titleHeight + row * (finalQrSize + 10);
-      
+
+      // Calculate position with larger spacing
+      const cellWidth = (availableWidth - (cols - 1) * gap) / cols + gap;
+      const cellHeight = finalQrSize + textHeight + gap;
+      const x = margin + col * cellWidth;
+      const y = margin + titleHeight + row * cellHeight;
+
       try {
         const response = await fetch(dataUrl);
         const blob = await response.blob();
         const base64 = await blobToBase64(blob);
-        
+
         // Add QR code image
         doc.addImage(base64, 'PNG', x, y, finalQrSize, finalQrSize);
-        
-        // Add index number
-        doc.setFontSize(Math.min(6, finalQrSize / 5));
+
+        // Add index number - 字体增大
+        doc.setFontSize(Math.max(8, Math.min(10, finalQrSize / 4)));
         doc.setFont('helvetica', 'normal');
         const indexText = `#${index + 1}`;
-        doc.text(indexText, x, y + finalQrSize + 2);
-        
-        // Add content preview (truncate based on QR size)
-        const maxChars = Math.floor(finalQrSize / 2.5);
+        doc.text(indexText, x, y + finalQrSize + 4);
+
+        // Add content preview - 字体增大
+        const maxChars = Math.floor(finalQrSize / 2);
         const contentPreview = content.length > maxChars ? content.substring(0, maxChars) + '...' : content;
-        doc.setFontSize(Math.min(5, finalQrSize / 6));
-        doc.text(contentPreview, x + finalQrSize / 2, y + finalQrSize + 5, { align: 'center' });
-        
-        // Add label below content preview if present
+        doc.setFontSize(Math.max(7, Math.min(9, finalQrSize / 5)));
+        doc.text(contentPreview, x + finalQrSize / 2, y + finalQrSize + 8, { align: 'center' });
+
+        // Add label below content preview if present - 字体增大
         if (label) {
-          doc.setFontSize(5);
+          doc.setFontSize(Math.max(7, Math.min(9, finalQrSize / 5)));
           doc.setFont('helvetica', 'bold');
-          const labelText = label.length > 15 ? label.substring(0, 15) + '...' : label;
-          doc.text(labelText, x + finalQrSize / 2, y + finalQrSize + 8, { align: 'center' });
+          const labelText = label.length > 20 ? label.substring(0, 20) + '...' : label;
+          doc.text(labelText, x + finalQrSize / 2, y + finalQrSize + 13, { align: 'center' });
         }
-        
+
       } catch (error) {
         console.error('Failed to add QR code image:', error);
       }

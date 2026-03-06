@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Label } from '../ui/Label';
 import { Button } from '../ui/Button';
@@ -8,11 +8,12 @@ import { Slider } from '../ui/Slider';
 import { ColorPicker } from '../ui/ColorPicker';
 import { ChevronDown, ChevronUp, Download, FileText, FileArchive, Grid, Settings, LayoutGrid, RotateCcw, ScanLine } from 'lucide-react';
 import { useQRCodeStore } from '@/stores';
-import { BatchItem } from '@/types';
+
 import { QRCodePreview } from './QRCodePreview';
 import { BatchPreview } from './BatchPreview';
 import { QRCodeDecoder } from './QRCodeDecoder';
 import { Tabs, TabsList, TabsTrigger } from '../ui/Tabs';
+import { ExportPanel } from './ExportPanel';
 
 // 解析输入行，提取 content 和 label
 function parseContentLabel(line: string): { content: string; label: string } {
@@ -67,9 +68,6 @@ function GenerateMode() {
     previewSettings, setPreviewSettings,
   } = useQRCodeStore();
 
-  // 确保 data 是数组
-  const batchData = batchConfig?.data || [];
-
   // 从 localStorage 恢复上次的内容
   // 注意: inputText 现在从 store 的 persist 中恢复，不再需要手动 localStorage 读取
 
@@ -93,52 +91,44 @@ function GenerateMode() {
   // 样式设置展开状态 (纯 UI 状态，不需要持久化)
   const [styleExpanded, setStyleExpanded] = useState(false);
 
-  // 使用 ref 追踪上一次的输入，避免不必要的重新同步
-  const prevInputTextRef = useRef<string>(inputText);
-  const isInitialMountRef = useRef(true);
-
-  // 解析输入内容并同步到批量数据
+  // 实时同步输入内容到批量数据
   useEffect(() => {
-    const lines = contentLines;
-
     // 自动检测模式
     if (autoMode) {
-      if (lines.length <= 1) {
+      if (parsedLines.length <= 1) {
         setDetectedMode('single');
+        // 单个模式：更新 singleConfig
+        if (parsedLines.length > 0) {
+          const parsed = parsedLines[0];
+          setSingleConfig({ content: parsed.content, label: parsed.label || undefined });
+        } else {
+          setSingleConfig({ content: '', label: undefined });
+        }
       } else {
         setDetectedMode('batch');
-
-        // 只在输入内容真正变化时才同步到批量数据
-        // 避免删除操作触发不必要的数据重置
-        if (isInitialMountRef.current || prevInputTextRef.current !== inputText) {
-          isInitialMountRef.current = false;
-          prevInputTextRef.current = inputText;
-
-          // 只有当内容列表确实不同时才清空并重新添加
-          const currentContents = batchData.map((d: BatchItem) => d.content);
-          if (JSON.stringify(lines) !== JSON.stringify(currentContents)) {
-            clearBatchItems();
-            parsedLines.forEach((parsed) => addBatchItem(parsed.content, parsed.label));
-          }
+        // 批量模式：实时同步到批量数据
+        clearBatchItems();
+        parsedLines.forEach((parsed) => addBatchItem(parsed.content, parsed.label || ''));
+      }
+    } else {
+      // 手动模式
+      if (manualMode === 'single') {
+        if (parsedLines.length > 0) {
+          const parsed = parsedLines[0];
+          setSingleConfig({ content: parsed.content, label: parsed.label || undefined });
+        } else {
+          setSingleConfig({ content: '', label: undefined });
         }
+      } else {
+        // 手动批量模式
+        clearBatchItems();
+        parsedLines.forEach((parsed) => addBatchItem(parsed.content, parsed.label || ''));
       }
     }
-  }, [inputText, autoMode, batchData, addBatchItem, clearBatchItems, contentLines]);
+  }, [parsedLines, autoMode, manualMode, addBatchItem, clearBatchItems, setSingleConfig]);
 
   // 确定当前使用的模式
   const currentMode = autoMode ? detectedMode : manualMode;
-  // 处理单个内容更新
-  useEffect(() => {
-    if (currentMode === 'single') {
-      if (contentLines.length > 0) {
-        const parsed = parseContentLabel(contentLines[0]);
-        setSingleConfig({ content: parsed.content, label: parsed.label || undefined });
-      } else {
-        // 清空输入时也要清空配置
-        setSingleConfig({ content: '', label: undefined });
-      }
-    }
-  }, [currentMode, contentLines, setSingleConfig]);
 
   // 简化版导出处理函数
   const handleExport = () => {
@@ -146,8 +136,9 @@ function GenerateMode() {
     const event = new CustomEvent('qrcode-export', {
       detail: {
         format: exportSettings.format,
-        itemsPerPage: exportSettings.itemsPerPage,
+        itemsPerPage: exportSettings.columns * exportSettings.rows,
         columns: exportSettings.columns,
+        rows: exportSettings.rows,
       }
     });
     window.dispatchEvent(event);
@@ -424,24 +415,43 @@ function GenerateMode() {
                 )}
 
                 {exportSettings.format === 'pdf' && (
-                  <div className="space-y-1">
-                    <Label className="text-xs">每页显示数量</Label>
-                    <Select value={String(exportSettings.itemsPerPage)} onValueChange={(value) => setExportSettings({ itemsPerPage: Number(value) })}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="6">6 个</SelectItem>
-                        <SelectItem value="9">9 个</SelectItem>
-                        <SelectItem value="12">12 个</SelectItem>
-                        <SelectItem value="16">16 个</SelectItem>
-                        <SelectItem value="20">20 个</SelectItem>
-                        <SelectItem value="25">25 个</SelectItem>
-                        <SelectItem value="30">30 个</SelectItem>
-                        <SelectItem value="36">36 个</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <>
+                    <div className="space-y-1">
+                      <Label className="text-xs">每页列数</Label>
+                      <Select value={String(exportSettings.columns)} onValueChange={(value) => setExportSettings({ columns: Number(value) })}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 列</SelectItem>
+                          <SelectItem value="2">2 列</SelectItem>
+                          <SelectItem value="3">3 列</SelectItem>
+                          <SelectItem value="4">4 列</SelectItem>
+                          <SelectItem value="5">5 列</SelectItem>
+                          <SelectItem value="6">6 列</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">每页行数</Label>
+                      <Select value={String(exportSettings.rows)} onValueChange={(value) => setExportSettings({ rows: Number(value) })}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 行</SelectItem>
+                          <SelectItem value="2">2 行</SelectItem>
+                          <SelectItem value="3">3 行</SelectItem>
+                          <SelectItem value="4">4 行</SelectItem>
+                          <SelectItem value="5">5 行</SelectItem>
+                          <SelectItem value="6">6 行</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      每页 {exportSettings.columns * exportSettings.rows} 个二维码
+                    </div>
+                  </>
                 )}
 
                 {exportSettings.format === 'multiple' && (
@@ -488,8 +498,10 @@ function GenerateMode() {
             />
           )}
         </div>
+        <ExportPanel dataUrl="" config={currentConfig} mode={currentMode} />
     </div>
   );
+
 }
 
 // 简化的样式设置组件
