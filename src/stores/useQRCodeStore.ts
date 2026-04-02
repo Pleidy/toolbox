@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { QRCodeConfig, BatchItem, BatchConfig } from '../types';
-import { generateId } from '../lib/utils';
 
 const defaultSingleConfig: QRCodeConfig = {
   content: 'https://example.com',
@@ -40,7 +39,6 @@ interface QRCodeState {
 
   batchConfig: BatchConfig;
   setBatchConfig: (config: Partial<BatchConfig>) => void;
-  addBatchItem: (content: string, label?: string) => void;
   removeBatchItem: (id: string) => void;
   updateBatchItem: (id: string, item: Partial<BatchItem>) => void;
   clearBatchItems: () => void;
@@ -95,22 +93,6 @@ export const useQRCodeStore = create<QRCodeState>()(
       setBatchConfig: (config) =>
         set((state) => ({
           batchConfig: { ...state.batchConfig, ...config },
-        })),
-      addBatchItem: (content, label) =>
-        set((state) => ({
-          batchConfig: {
-            ...state.batchConfig,
-            data: [
-              ...state.batchConfig.data,
-              {
-                id: generateId(),
-                content,
-                label: label || undefined,
-                status: 'pending',
-                used: state.usedContents.includes(content),
-              },
-            ],
-          },
         })),
       removeBatchItem: (id) =>
         set((state) => ({

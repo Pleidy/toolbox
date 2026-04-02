@@ -121,6 +121,7 @@ function GenerateMode() {
 
   const [styleExpanded, setStyleExpanded] = useState(false);
   const [detectedMode, setDetectedMode] = useState<'single' | 'batch'>('single');
+  const [singlePreviewDataUrl, setSinglePreviewDataUrl] = useState('');
 
   const parsedLines = useMemo(
     () =>
@@ -566,7 +567,10 @@ function GenerateMode() {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {currentMode === 'single' ? (
-          <QRCodePreview config={currentConfig} />
+          <QRCodePreview
+            config={currentConfig}
+            onDataUrlChange={setSinglePreviewDataUrl}
+          />
         ) : (
           <BatchPreview
             config={batchConfig.globalStyle}
@@ -577,7 +581,11 @@ function GenerateMode() {
         )}
       </div>
 
-      <ExportPanel dataUrl="" config={currentConfig} mode={currentMode} />
+      <ExportPanel
+        dataUrl={singlePreviewDataUrl}
+        config={currentConfig}
+        mode={currentMode}
+      />
     </div>
   );
 }

@@ -46,7 +46,6 @@ function createWindow() {
       }
     }
 
-    console.log('Loading from:', distPath);
     win.loadFile(distPath);
   }
 

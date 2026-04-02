@@ -74,18 +74,6 @@ export async function exportBatchQRCode(
   saveAs(content, `qr-codes-${Date.now()}.zip`);
 }
 
-// Get filename pattern
-export function generateFilename(pattern: string, index: number, content: string): string {
-  const ext = pattern.endsWith('.png') || pattern.endsWith('.jpg') 
-    ? pattern 
-    : `${pattern}`;
-  
-  return ext
-    .replace('{index}', String(index).padStart(3, '0'))
-    .replace('{content}', content.substring(0, 20).replace(/[^a-zA-Z0-9]/g, '_'))
-    .replace('{timestamp}', Date.now().toString());
-}
-
 // Export batch as PDF (with adaptive grid layout)
 export async function exportBatchAsPDF(
   qrCodes: { dataUrl: string; content: string; label?: string }[],
@@ -106,8 +94,6 @@ export async function exportBatchAsPDF(
     qrSize              // Optional, will auto-calculate if not provided
   } = options;
 
-  console.log('exportBatchAsPDF options:', { columns, rows, itemsPerPage: options.itemsPerPage });
-
   // Dynamic import to avoid SSR issues
   const { default: jsPDF } = await import('jspdf');
 
@@ -120,8 +106,6 @@ export async function exportBatchAsPDF(
   // Use provided columns/rows directly if available
   const cols = columns ?? Math.ceil(Math.sqrt(options.itemsPerPage || 12));
   const rowsPerPage = rows ?? Math.ceil((options.itemsPerPage || 12) / cols);
-
-  console.log('PDF layout:', { cols, rowsPerPage, itemsPerPage: cols * rowsPerPage });
   
   // Calculate QR code size based on page size and grid
   const margin = 10; // mm - 页边距
@@ -295,9 +279,17 @@ function blobToBase64(blob: Blob): Promise<string> {
 function loadImage(blob: Blob): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = URL.createObjectURL(blob);
+    const objectUrl = URL.createObjectURL(blob);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(img);
+    };
+    img.onerror = (error) => {
+      URL.revokeObjectURL(objectUrl);
+      reject(error);
+    };
+    img.src = objectUrl;
   });
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { QRCodeConfig } from '@/types';
 import { exportQRCode, exportBatchQRCode, exportBatchAsPDF, exportBatchAsCollage } from '@/lib/fileOperations';
 import { useQRCodeStore } from '@/stores';
+import { configToOptions } from '@/lib/qrcode';
 import { generateFilename } from '@/lib/utils';
 
 interface ExportPanelProps {
@@ -42,15 +43,7 @@ export function ExportPanel({ dataUrl, config, mode }: ExportPanelProps) {
     const currentConfig = configRef.current;
     const currentBatchConfig = batchConfigRef.current;
 
-    console.log('handleBatchExport called:', {
-      exportFormat,
-      colCount,
-      rowCount,
-      batchDataLength: currentBatchData.length
-    });
-
     if (currentBatchData.length === 0) {
-      console.log('No batch data to export');
       return;
     }
 
@@ -60,18 +53,10 @@ export function ExportPanel({ dataUrl, config, mode }: ExportPanelProps) {
     try {
       // First generate all QR codes
       const qrCodesWithContent: { dataUrl: string; content: string; label?: string }[] = [];
+      const options = configToOptions(currentConfig);
 
       for (let i = 0; i < currentBatchData.length; i++) {
         const item = currentBatchData[i];
-        const options = {
-          width: currentConfig.width,
-          margin: currentConfig.margin,
-          errorCorrectionLevel: currentConfig.errorCorrectionLevel,
-          color: {
-            dark: currentConfig.foregroundColor,
-            light: currentConfig.backgroundColor,
-          },
-        };
 
         const { generateQRCode } = await import('@/lib/qrcode');
         const qrDataUrl = await generateQRCode(item.content, options);
@@ -79,8 +64,6 @@ export function ExportPanel({ dataUrl, config, mode }: ExportPanelProps) {
         qrCodesWithContent.push({ dataUrl: qrDataUrl, content: item.content, label: item.label });
         setProgress(((i + 1) / currentBatchData.length) * 50);
       }
-
-      console.log('Generated QR codes:', qrCodesWithContent.length);
 
       // Then export based on selected type
       if (exportFormat === 'pdf') {
@@ -121,8 +104,6 @@ export function ExportPanel({ dataUrl, config, mode }: ExportPanelProps) {
   useEffect(() => {
     const handleExport = (event: CustomEvent) => {
       const { format, columns, rows } = event.detail;
-
-      console.log('Export event received:', { format, columns, rows, mode });
 
       if (mode === 'single') {
         handleSingleExport(dataUrl, configRef.current.label);
