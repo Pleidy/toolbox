@@ -24,6 +24,7 @@ interface ExportSettings {
   itemsPerPage: number;
   columns: number;
   rows: number;
+  splitThreshold: number;
   expanded: boolean;
 }
 
@@ -50,8 +51,13 @@ interface QRCodeState {
 
   generating: boolean;
   progress: number;
+  progressLabel: string;
+  cancelRequested: boolean;
   setGenerating: (generating: boolean) => void;
   setProgress: (progress: number) => void;
+  setProgressLabel: (label: string) => void;
+  setCancelRequested: (cancelRequested: boolean) => void;
+  resetExportState: () => void;
 
   inputText: string;
   autoMode: boolean;
@@ -71,6 +77,7 @@ const defaultExportSettings: ExportSettings = {
   itemsPerPage: 12,
   columns: 3,
   rows: 4,
+  splitThreshold: 0,
   expanded: false,
 };
 
@@ -162,8 +169,19 @@ export const useQRCodeStore = create<QRCodeState>()(
 
       generating: false,
       progress: 0,
+      progressLabel: '',
+      cancelRequested: false,
       setGenerating: (generating) => set({ generating }),
       setProgress: (progress) => set({ progress }),
+      setProgressLabel: (progressLabel) => set({ progressLabel }),
+      setCancelRequested: (cancelRequested) => set({ cancelRequested }),
+      resetExportState: () =>
+        set({
+          generating: false,
+          progress: 0,
+          progressLabel: '',
+          cancelRequested: false,
+        }),
 
       inputText: '',
       autoMode: true,

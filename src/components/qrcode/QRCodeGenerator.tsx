@@ -10,6 +10,7 @@ import {
   RotateCcw,
   ScanLine,
   Settings,
+  Upload,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Label } from '../ui/Label';
@@ -32,6 +33,7 @@ import { QRCodePreview } from './QRCodePreview';
 import { BatchPreview } from './BatchPreview';
 import { QRCodeDecoder } from './QRCodeDecoder';
 import { ExportPanel } from './ExportPanel';
+import { BatchImportDialog } from './BatchImportDialog';
 
 function parseContentLabel(line: string): { content: string; label: string } {
   const spaceIndex = line.indexOf(' ');
@@ -117,11 +119,16 @@ function GenerateMode() {
     setExportSettings,
     previewSettings,
     setPreviewSettings,
+    generating,
+    progress,
+    progressLabel,
+    setCancelRequested,
   } = useQRCodeStore();
 
   const [styleExpanded, setStyleExpanded] = useState(false);
   const [detectedMode, setDetectedMode] = useState<'single' | 'batch'>('single');
   const [singlePreviewDataUrl, setSinglePreviewDataUrl] = useState('');
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const parsedLines = useMemo(
     () =>
@@ -220,6 +227,10 @@ function GenerateMode() {
     clearBatchItems();
   };
 
+  const handleCancelExport = () => {
+    setCancelRequested(true);
+  };
+
   return (
     <div className="h-full flex gap-4">
       <div className="w-[500px] flex-shrink-0 flex flex-col gap-3 overflow-y-auto">
@@ -286,6 +297,15 @@ function GenerateMode() {
                     {parsedLines.length} 个二维码
                   </span>
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setImportDialogOpen(true)}
+                    >
+                      <Upload className="mr-1 h-3 w-3" />
+                      导入文件
+                    </Button>
                     {inputText !== 'https://example.com' && (
                       <Button
                         variant="ghost"
@@ -549,6 +569,30 @@ function GenerateMode() {
                     />
                   </div>
                 )}
+
+                {exportSettings.format !== 'multiple' && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">拆分数量阈值</Label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-full h-8 px-2 border rounded bg-background text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                      value={exportSettings.splitThreshold}
+                      onChange={(event) =>
+                        setExportSettings({
+                          splitThreshold: Math.max(
+                            0,
+                            Number(event.target.value) || 0
+                          ),
+                        })
+                      }
+                      placeholder="0"
+                    />
+                    <div className="text-xs text-muted-foreground">
+                      0 表示不拆分。超过该数量时，将拆成多个文件并打包为 ZIP 下载。
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -556,11 +600,36 @@ function GenerateMode() {
               className="w-full"
               size="sm"
               onClick={handleExport}
-              disabled={parsedLines.length === 0}
+              disabled={parsedLines.length === 0 || generating}
             >
               <Download className="mr-1.5 h-3.5 w-3.5" />
-              导出
+              {generating ? `导出中 ${Math.round(progress)}%` : '导出'}
             </Button>
+
+            {generating && (
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{progressLabel || '正在导出...'}</span>
+                    <span>{Math.round(progress)}%</span>
+                  </div>
+                  <div className="w-full bg-secondary rounded-full h-1.5">
+                    <div
+                      className="bg-primary h-1.5 rounded-full transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={handleCancelExport}
+                >
+                  取消导出
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -585,6 +654,11 @@ function GenerateMode() {
         dataUrl={singlePreviewDataUrl}
         config={currentConfig}
         mode={currentMode}
+      />
+      <BatchImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onImport={(contents) => setInputText(contents.join('\n'))}
       />
     </div>
   );

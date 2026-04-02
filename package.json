@@ -1,7 +1,7 @@
 {
   "name": "toolbox",
   "private": true,
-  "version": "1.1.7",
+  "version": "1.2.0",
   "type": "module",
   "main": "electron/main.js",
   "description": "一个功能强大的工具箱，支持二维码生成、解码、JSON 格式化等功能",

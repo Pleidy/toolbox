@@ -22,7 +22,7 @@ yarn-error.log
 /.cursor
 /.kiro
 /.vscode
-/.kiro
+/.*
 docs/env/.env.lw
 
 # Electron build output

@@ -1,7 +1,38 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
-import { crx } from '@crxjs/vite-plugin'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import { crx } from '@crxjs/vite-plugin';
+
+function manualChunks(id: string) {
+  if (id.includes('node_modules')) {
+    if (
+      id.includes('jspdf') ||
+      id.includes('html2canvas') ||
+      id.includes('jszip') ||
+      id.includes('file-saver')
+    ) {
+      return 'export-vendor';
+    }
+  }
+
+  if (id.includes('/src/components/qrcode/') || id.includes('/src/lib/qrcode')) {
+    return 'tool-qrcode';
+  }
+
+  if (id.includes('/src/components/json/')) {
+    return 'tool-json';
+  }
+
+  if (id.includes('/src/components/image/')) {
+    return 'tool-image';
+  }
+
+  if (id.includes('/src/components/encoder/')) {
+    return 'tool-encoder';
+  }
+
+  return undefined;
+}
 
 export default defineConfig(({ mode }) => ({
   plugins: [
@@ -9,8 +40,8 @@ export default defineConfig(({ mode }) => ({
     crx({
       manifest: {
         name: 'QRCode Toolbox',
-        description: '二维码生成和解码工具',
-        version: '1.0.0',
+        description: '二维码生成和解析工具',
+        version: '1.2.0',
         manifest_version: 3,
         action: {
           default_popup: 'index.html',
@@ -35,4 +66,11 @@ export default defineConfig(({ mode }) => ({
     port: 1420,
     strictPort: true,
   },
-}))
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks,
+      },
+    },
+  },
+}));
