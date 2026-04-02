@@ -1,28 +1,42 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ChevronDown,
+  ChevronUp,
+  Download,
+  FileArchive,
+  FileText,
+  Grid,
+  LayoutGrid,
+  RotateCcw,
+  ScanLine,
+  Settings,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Label } from '../ui/Label';
 import { Button } from '../ui/Button';
 import { Switch } from '../ui/Switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/Select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/Select';
 import { Slider } from '../ui/Slider';
 import { ColorPicker } from '../ui/ColorPicker';
-import { ChevronDown, ChevronUp, Download, FileText, FileArchive, Grid, Settings, LayoutGrid, RotateCcw, ScanLine } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '../ui/Tabs';
 import { useQRCodeStore } from '@/stores';
-
+import { BatchItem, QRCodeConfig } from '@/types';
+import { generateId } from '@/lib/utils';
 import { QRCodePreview } from './QRCodePreview';
 import { BatchPreview } from './BatchPreview';
 import { QRCodeDecoder } from './QRCodeDecoder';
-import { Tabs, TabsList, TabsTrigger } from '../ui/Tabs';
 import { ExportPanel } from './ExportPanel';
 
-// 解析输入行，提取 content 和 label
-// 支持空格和 Tab 作为分隔符
 function parseContentLabel(line: string): { content: string; label: string } {
-  // 查找第一个空格或 Tab 的位置
   const spaceIndex = line.indexOf(' ');
   const tabIndex = line.indexOf('\t');
 
-  // 找到最先出现的分隔符
   let separatorIndex = -1;
   if (spaceIndex === -1 && tabIndex === -1) {
     separatorIndex = -1;
@@ -37,10 +51,22 @@ function parseContentLabel(line: string): { content: string; label: string } {
   if (separatorIndex === -1) {
     return { content: line.trim(), label: '' };
   }
+
   return {
     content: line.substring(0, separatorIndex).trim(),
-    label: line.substring(separatorIndex + 1).trim()
+    label: line.substring(separatorIndex + 1).trim(),
   };
+}
+
+function buildBatchItems(
+  parsedLines: Array<{ content: string; label: string }>
+): BatchItem[] {
+  return parsedLines.map((parsed) => ({
+    id: generateId(),
+    content: parsed.content,
+    label: parsed.label || undefined,
+    status: 'pending',
+  }));
 }
 
 export function QRCodeGenerator() {
@@ -48,9 +74,11 @@ export function QRCodeGenerator() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* 顶部 Tab 切换 */}
       <div className="mb-4">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'generate' | 'decode')}>
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as 'generate' | 'decode')}
+        >
           <TabsList className="h-10">
             <TabsTrigger value="generate" className="px-4">
               <ScanLine className="h-4 w-4 mr-2" />
@@ -58,13 +86,12 @@ export function QRCodeGenerator() {
             </TabsTrigger>
             <TabsTrigger value="decode" className="px-4">
               <ScanLine className="h-4 w-4 mr-2" />
-              解码二维码
+              解析二维码
             </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
-      {/* 内容区域 */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'generate' ? <GenerateMode /> : <QRCodeDecoder />}
       </div>
@@ -73,126 +100,136 @@ export function QRCodeGenerator() {
 }
 
 function GenerateMode() {
-  // 从 store 读取所有持久化状态
   const {
-    singleConfig, setSingleConfig,
-    batchConfig, setBatchConfig, addBatchItem, clearBatchItems,
-    inputText, setInputText,
-    autoMode, setAutoMode,
-    manualMode, setManualMode,
-    exportSettings, setExportSettings,
-    previewSettings, setPreviewSettings,
+    singleConfig,
+    setSingleConfig,
+    batchConfig,
+    setBatchConfig,
+    clearBatchItems,
+    setBatchData,
+    inputText,
+    setInputText,
+    autoMode,
+    setAutoMode,
+    manualMode,
+    setManualMode,
+    exportSettings,
+    setExportSettings,
+    previewSettings,
+    setPreviewSettings,
   } = useQRCodeStore();
 
-  // 从 localStorage 恢复上次的内容
-  // 注意: inputText 现在从 store 的 persist 中恢复，不再需要手动 localStorage 读取
-
-  // 解析输入的内容列表，返回包含 content 和 label 的对象数组
-  const parsedLines = useMemo(() => {
-    return inputText
-      .split('\n')
-      .map((line: string) => line.trim())
-      .filter((line: string) => line.length > 0)
-      .map((line: string) => parseContentLabel(line));
-  }, [inputText]);
-
-  // 保持对纯 content 列表的兼容（用于自动检测模式）
-  const contentLines = useMemo(() => {
-    return parsedLines.map(p => p.content);
-  }, [parsedLines]);
-
-  // 自动检测模式
+  const [styleExpanded, setStyleExpanded] = useState(false);
   const [detectedMode, setDetectedMode] = useState<'single' | 'batch'>('single');
 
-  // 样式设置展开状态 (纯 UI 状态，不需要持久化)
-  const [styleExpanded, setStyleExpanded] = useState(false);
+  const parsedLines = useMemo(
+    () =>
+      inputText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .map((line) => parseContentLabel(line)),
+    [inputText]
+  );
 
-  // 实时同步输入内容到批量数据
+  const currentMode = autoMode ? detectedMode : manualMode;
+  const currentConfig =
+    currentMode === 'single' ? singleConfig : batchConfig.globalStyle;
+
   useEffect(() => {
-    // 自动检测模式
+    const batchItems = buildBatchItems(parsedLines);
+
     if (autoMode) {
       if (parsedLines.length <= 1) {
         setDetectedMode('single');
-        // 单个模式：更新 singleConfig
+        setBatchData([]);
+
         if (parsedLines.length > 0) {
           const parsed = parsedLines[0];
-          setSingleConfig({ content: parsed.content, label: parsed.label || undefined });
+          setSingleConfig({
+            content: parsed.content,
+            label: parsed.label || undefined,
+          });
         } else {
           setSingleConfig({ content: '', label: undefined });
         }
-      } else {
-        setDetectedMode('batch');
-        // 批量模式：实时同步到批量数据
-        clearBatchItems();
-        parsedLines.forEach((parsed) => addBatchItem(parsed.content, parsed.label || ''));
+
+        return;
       }
-    } else {
-      // 手动模式
-      if (manualMode === 'single') {
-        if (parsedLines.length > 0) {
-          const parsed = parsedLines[0];
-          setSingleConfig({ content: parsed.content, label: parsed.label || undefined });
-        } else {
-          setSingleConfig({ content: '', label: undefined });
-        }
-      } else {
-        // 手动批量模式
-        clearBatchItems();
-        parsedLines.forEach((parsed) => addBatchItem(parsed.content, parsed.label || ''));
-      }
+
+      setDetectedMode('batch');
+      setBatchData(batchItems);
+      return;
     }
-  }, [parsedLines, autoMode, manualMode, addBatchItem, clearBatchItems, setSingleConfig]);
 
-  // 确定当前使用的模式
-  const currentMode = autoMode ? detectedMode : manualMode;
+    if (manualMode === 'single') {
+      setBatchData([]);
 
-  // 简化版导出处理函数
+      if (parsedLines.length > 0) {
+        const parsed = parsedLines[0];
+        setSingleConfig({
+          content: parsed.content,
+          label: parsed.label || undefined,
+        });
+      } else {
+        setSingleConfig({ content: '', label: undefined });
+      }
+
+      return;
+    }
+
+    setBatchData(batchItems);
+  }, [autoMode, manualMode, parsedLines, setBatchData, setSingleConfig]);
+
+  const handleStyleChange = (style: Partial<QRCodeConfig>) => {
+    if (currentMode === 'single') {
+      setSingleConfig(style);
+      return;
+    }
+
+    setBatchConfig({
+      globalStyle: {
+        ...batchConfig.globalStyle,
+        ...style,
+        content: batchConfig.globalStyle.content,
+      },
+    });
+  };
+
   const handleExport = () => {
-    // 通过自定义事件触发导出
     const event = new CustomEvent('qrcode-export', {
       detail: {
         format: exportSettings.format,
         itemsPerPage: exportSettings.columns * exportSettings.rows,
         columns: exportSettings.columns,
         rows: exportSettings.rows,
-      }
+      },
     });
+
     window.dispatchEvent(event);
   };
 
-  // 获取当前样式配置
-  const currentConfig = currentMode === 'single' ? singleConfig : batchConfig.globalStyle;
-
-  // 处理样式更新
-  const handleStyleChange = (style: any) => {
-    if (currentMode === 'single') {
-      setSingleConfig(style);
-    } else {
-      setBatchConfig({
-        globalStyle: { ...batchConfig.globalStyle, ...style, content: batchConfig.globalStyle.content }
-      });
-    }
-  };
-
-  // 恢复默认内容
   const restoreDefault = () => {
     setInputText('https://example.com');
     clearBatchItems();
   };
 
+  const clearInput = () => {
+    setInputText('');
+    clearBatchItems();
+  };
+
   return (
     <div className="h-full flex gap-4">
-      {/* 左侧面板：输入 + 样式 + 导出 + 预览设置 */}
       <div className="w-[500px] flex-shrink-0 flex flex-col gap-3 overflow-y-auto">
-        {/* 输入区域 */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base">输入内容</CardTitle>
-              </div>
+              <CardTitle className="text-base">输入内容</CardTitle>
               <div className="flex items-center space-x-2">
-                <Label htmlFor="auto-mode" className="text-xs">自动识别</Label>
+                <Label htmlFor="auto-mode" className="text-xs">
+                  自动识别
+                </Label>
                 <Switch
                   id="auto-mode"
                   checked={autoMode}
@@ -204,41 +241,48 @@ function GenerateMode() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-3">
-              {/* 自动识别提示 */}
               {autoMode && (
-                <div className={`text-xs px-2 py-1.5 rounded ${
-                  currentMode === 'batch'
-                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                    : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                }`}>
+                <div
+                  className={`text-xs px-2 py-1.5 rounded ${
+                    currentMode === 'batch'
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                      : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                  }`}
+                >
                   {currentMode === 'batch'
-                    ? `检测到 ${contentLines.length} 个内容，将进行批量生成`
-                    : '检测到单个内容，将进行单个生成'
-                  }
+                    ? `检测到 ${parsedLines.length} 个内容，将进行批量生成`
+                    : '检测到单个内容，将进行单个生成'}
                 </div>
               )}
 
-              {/* 手动模式切换（非自动模式时显示） */}
               {!autoMode && (
-                <Tabs value={manualMode} onValueChange={(value) => setManualMode(value as 'single' | 'batch')}>
+                <Tabs
+                  value={manualMode}
+                  onValueChange={(value) =>
+                    setManualMode(value as 'single' | 'batch')
+                  }
+                >
                   <TabsList className="h-8">
-                    <TabsTrigger value="single" className="text-xs px-3 py-1">单个</TabsTrigger>
-                    <TabsTrigger value="batch" className="text-xs px-3 py-1">批量</TabsTrigger>
+                    <TabsTrigger value="single" className="text-xs px-3 py-1">
+                      单个
+                    </TabsTrigger>
+                    <TabsTrigger value="batch" className="text-xs px-3 py-1">
+                      批量
+                    </TabsTrigger>
                   </TabsList>
                 </Tabs>
               )}
 
-              {/* 内容输入框 - 高度适中 */}
               <div className="space-y-2">
                 <textarea
                   className="w-full h-40 p-2 border rounded-md bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-none"
-                  placeholder="每行输入一个内容"
+                  placeholder="每行一个二维码内容，空格或 Tab 后面的文本会作为标签。"
                   value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
+                  onChange={(event) => setInputText(event.target.value)}
                 />
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-muted-foreground">
-                    {contentLines.length} 个二维码
+                    {parsedLines.length} 个二维码
                   </span>
                   <div className="flex items-center gap-2">
                     {inputText !== 'https://example.com' && (
@@ -257,10 +301,7 @@ function GenerateMode() {
                       variant="outline"
                       size="sm"
                       className="h-7 text-xs"
-                      onClick={() => {
-                        setInputText('');
-                        clearBatchItems();
-                      }}
+                      onClick={clearInput}
                     >
                       清空
                     </Button>
@@ -271,7 +312,6 @@ function GenerateMode() {
           </CardContent>
         </Card>
 
-        {/* 预览设置（仅批量模式） */}
         {currentMode === 'batch' && (
           <Card>
             <CardHeader className="pb-2">
@@ -281,26 +321,30 @@ function GenerateMode() {
               </div>
             </CardHeader>
             <CardContent className="pt-0 space-y-4">
-              {/* 每行数量 */}
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label className="text-xs">每行数量</Label>
-                  <span className="text-xs text-muted-foreground">{previewSettings.columns} 个</span>
+                  <span className="text-xs text-muted-foreground">
+                    {previewSettings.columns} 个
+                  </span>
                 </div>
                 <Slider
                   value={[previewSettings.columns]}
                   min={1}
                   max={8}
                   step={1}
-                  onValueChange={([value]) => setPreviewSettings({ columns: value })}
+                  onValueChange={([value]) =>
+                    setPreviewSettings({ columns: value })
+                  }
                 />
               </div>
 
-              {/* 码尺寸 */}
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label className="text-xs">码尺寸</Label>
-                  <span className="text-xs text-muted-foreground">{previewSettings.size}px</span>
+                  <span className="text-xs text-muted-foreground">
+                    {previewSettings.size}px
+                  </span>
                 </div>
                 <Slider
                   value={[previewSettings.size]}
@@ -311,31 +355,33 @@ function GenerateMode() {
                 />
               </div>
 
-              {/* 行高 */}
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label className="text-xs">行高</Label>
-                  <span className="text-xs text-muted-foreground">{previewSettings.rowHeight}px</span>
+                  <span className="text-xs text-muted-foreground">
+                    {previewSettings.rowHeight}px
+                  </span>
                 </div>
                 <Slider
                   value={[previewSettings.rowHeight]}
                   min={100}
                   max={1000}
                   step={10}
-                  onValueChange={([value]) => setPreviewSettings({ rowHeight: value })}
+                  onValueChange={([value]) =>
+                    setPreviewSettings({ rowHeight: value })
+                  }
                 />
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* 样式设置 - 折叠 */}
         <Card>
           <CardHeader className="pb-2">
             <Button
               variant="ghost"
               className="w-full flex items-center justify-between p-0 hover:bg-transparent h-auto"
-              onClick={() => setStyleExpanded(!styleExpanded)}
+              onClick={() => setStyleExpanded((expanded) => !expanded)}
             >
               <div className="flex items-center">
                 <Settings className="mr-2 h-4 w-4" />
@@ -350,23 +396,26 @@ function GenerateMode() {
           </CardHeader>
           {styleExpanded && (
             <CardContent className="pt-0">
-              <StylePanelComponent config={currentConfig} onChange={handleStyleChange} />
+              <StylePanelComponent
+                config={currentConfig}
+                onChange={handleStyleChange}
+              />
             </CardContent>
           )}
         </Card>
 
-        {/* 导出设置 */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">导出设置</CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-3">
-            {/* 导出格式选择 */}
             <div className="space-y-1">
               <Label className="text-xs">导出格式</Label>
               <Select
                 value={exportSettings.format}
-                onValueChange={(value: 'pdf' | 'multiple' | 'collage') => setExportSettings({ format: value })}
+                onValueChange={(value: 'pdf' | 'multiple' | 'collage') =>
+                  setExportSettings({ format: value })
+                }
               >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
@@ -381,25 +430,26 @@ function GenerateMode() {
                   <SelectItem value="multiple">
                     <div className="flex items-center text-xs">
                       <FileArchive className="mr-2 h-3 w-3" />
-                      ZIP (多个文件)
+                      ZIP
                     </div>
                   </SelectItem>
                   <SelectItem value="collage">
                     <div className="flex items-center text-xs">
                       <Grid className="mr-2 h-3 w-3" />
-                      拼贴图
+                      拼图
                     </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* 展开/收起更多选项 */}
             <Button
               variant="ghost"
               size="sm"
               className="w-full flex items-center justify-between h-7"
-              onClick={() => setExportSettings({ expanded: !exportSettings.expanded })}
+              onClick={() =>
+                setExportSettings({ expanded: !exportSettings.expanded })
+              }
             >
               <span className="text-xs text-muted-foreground">更多选项</span>
               {exportSettings.expanded ? (
@@ -409,13 +459,17 @@ function GenerateMode() {
               )}
             </Button>
 
-            {/* 折叠的选项 */}
             {exportSettings.expanded && (
               <div className="space-y-3 pt-2 border-t">
                 {exportSettings.format === 'collage' && (
                   <div className="space-y-1">
-                    <Label className="text-xs">网格列数</Label>
-                    <Select value={String(exportSettings.columns)} onValueChange={(value) => setExportSettings({ columns: Number(value) })}>
+                    <Label className="text-xs">拼图列数</Label>
+                    <Select
+                      value={String(exportSettings.columns)}
+                      onValueChange={(value) =>
+                        setExportSettings({ columns: Number(value) })
+                      }
+                    >
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
@@ -434,7 +488,12 @@ function GenerateMode() {
                   <>
                     <div className="space-y-1">
                       <Label className="text-xs">每页列数</Label>
-                      <Select value={String(exportSettings.columns)} onValueChange={(value) => setExportSettings({ columns: Number(value) })}>
+                      <Select
+                        value={String(exportSettings.columns)}
+                        onValueChange={(value) =>
+                          setExportSettings({ columns: Number(value) })
+                        }
+                      >
                         <SelectTrigger className="h-8 text-xs">
                           <SelectValue />
                         </SelectTrigger>
@@ -450,7 +509,12 @@ function GenerateMode() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">每页行数</Label>
-                      <Select value={String(exportSettings.rows)} onValueChange={(value) => setExportSettings({ rows: Number(value) })}>
+                      <Select
+                        value={String(exportSettings.rows)}
+                        onValueChange={(value) =>
+                          setExportSettings({ rows: Number(value) })
+                        }
+                      >
                         <SelectTrigger className="h-8 text-xs">
                           <SelectValue />
                         </SelectTrigger>
@@ -477,8 +541,8 @@ function GenerateMode() {
                       type="text"
                       className="w-full h-8 px-2 border rounded bg-background text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                       value={batchConfig.filenamePattern}
-                      onChange={(e) =>
-                        setBatchConfig({ filenamePattern: e.target.value })
+                      onChange={(event) =>
+                        setBatchConfig({ filenamePattern: event.target.value })
                       }
                       placeholder="qr_{index}"
                     />
@@ -487,50 +551,53 @@ function GenerateMode() {
               </div>
             )}
 
-            {/* 导出按钮 */}
             <Button
               className="w-full"
               size="sm"
               onClick={handleExport}
-              disabled={contentLines.length === 0}
+              disabled={parsedLines.length === 0}
             >
               <Download className="mr-1.5 h-3.5 w-3.5" />
-              导出 {exportSettings.format === 'pdf' ? 'PDF' : exportSettings.format === 'multiple' ? 'ZIP' : '图片'}
+              导出
             </Button>
           </CardContent>
         </Card>
       </div>
 
-        {/* 右侧面板：预览 */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {currentMode === 'single' ? (
-            <QRCodePreview config={currentConfig} />
-          ) : (
-            <BatchPreview
-              config={batchConfig.globalStyle}
-              columns={previewSettings.columns}
-              qrSize={previewSettings.size}
-              rowHeight={previewSettings.rowHeight}
-            />
-          )}
-        </div>
-        <ExportPanel dataUrl="" config={currentConfig} mode={currentMode} />
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {currentMode === 'single' ? (
+          <QRCodePreview config={currentConfig} />
+        ) : (
+          <BatchPreview
+            config={batchConfig.globalStyle}
+            columns={previewSettings.columns}
+            qrSize={previewSettings.size}
+            rowHeight={previewSettings.rowHeight}
+          />
+        )}
+      </div>
+
+      <ExportPanel dataUrl="" config={currentConfig} mode={currentMode} />
     </div>
   );
-
 }
 
-// 简化的样式设置组件
-function StylePanelComponent({ config, onChange }: { config: any; onChange: (config: any) => void }) {
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        onChange({ logo: event.target?.result as string });
-      };
-      reader.readAsDataURL(file);
-    }
+function StylePanelComponent({
+  config,
+  onChange,
+}: {
+  config: QRCodeConfig;
+  onChange: (config: Partial<QRCodeConfig>) => void;
+}) {
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (loadEvent) => {
+      onChange({ logo: loadEvent.target?.result as string });
+    };
+    reader.readAsDataURL(file);
   };
 
   const removeLogo = () => {
@@ -539,7 +606,6 @@ function StylePanelComponent({ config, onChange }: { config: any; onChange: (con
 
   return (
     <div className="space-y-4">
-      {/* Size */}
       <div className="space-y-2">
         <div className="flex justify-between">
           <Label className="text-xs">尺寸</Label>
@@ -554,7 +620,6 @@ function StylePanelComponent({ config, onChange }: { config: any; onChange: (con
         />
       </div>
 
-      {/* Margin */}
       <div className="space-y-2">
         <div className="flex justify-between">
           <Label className="text-xs">边距</Label>
@@ -569,9 +634,8 @@ function StylePanelComponent({ config, onChange }: { config: any; onChange: (con
         />
       </div>
 
-      {/* Error Correction Level */}
       <div className="space-y-1">
-        <Label className="text-xs">错误纠正等级</Label>
+        <Label className="text-xs">纠错等级</Label>
         <Select
           value={config.errorCorrectionLevel}
           onValueChange={(value: 'L' | 'M' | 'Q' | 'H') =>
@@ -590,7 +654,6 @@ function StylePanelComponent({ config, onChange }: { config: any; onChange: (con
         </Select>
       </div>
 
-      {/* Colors */}
       <div className="grid grid-cols-2 gap-3">
         <ColorPicker
           label="前景色"
@@ -604,7 +667,6 @@ function StylePanelComponent({ config, onChange }: { config: any; onChange: (con
         />
       </div>
 
-      {/* Style */}
       <div className="space-y-1">
         <Label className="text-xs">样式风格</Label>
         <Select
@@ -624,19 +686,40 @@ function StylePanelComponent({ config, onChange }: { config: any; onChange: (con
         </Select>
       </div>
 
-      {/* Logo */}
       <div className="space-y-2">
         <Label className="text-xs">Logo 图片</Label>
         {config.logo ? (
-          <div className="flex items-center gap-2">
-            <img
-              src={config.logo}
-              alt="Logo"
-              className="w-12 h-12 object-contain border rounded"
-            />
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={removeLogo}>
-              移除
-            </Button>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <img
+                src={config.logo}
+                alt="Logo"
+                className="w-12 h-12 object-contain border rounded"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={removeLogo}
+              >
+                移除
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label className="text-xs">Logo 比例</Label>
+                <span className="text-xs text-muted-foreground">
+                  {Math.round((config.logoWidth || 0.2) * 100)}%
+                </span>
+              </div>
+              <Slider
+                value={[config.logoWidth || 0.2]}
+                min={0.1}
+                max={0.3}
+                step={0.05}
+                onValueChange={([value]) => onChange({ logoWidth: value })}
+              />
+            </div>
           </div>
         ) : (
           <div className="border-2 border-dashed rounded p-3 text-center">

@@ -35,11 +35,9 @@ interface PreviewSettings {
 }
 
 interface QRCodeState {
-  // Single generation state
   singleConfig: QRCodeConfig;
   setSingleConfig: (config: Partial<QRCodeConfig>) => void;
 
-  // Batch generation state
   batchConfig: BatchConfig;
   setBatchConfig: (config: Partial<BatchConfig>) => void;
   addBatchItem: (content: string, label?: string) => void;
@@ -47,26 +45,22 @@ interface QRCodeState {
   updateBatchItem: (id: string, item: Partial<BatchItem>) => void;
   clearBatchItems: () => void;
   setBatchData: (data: BatchItem[]) => void;
-  toggleUsed: (id: string) => void;  // 切换单个项目的已使用状态
-  clearAllUsed: () => void;           // 清除所有已使用状态
+  toggleUsed: (id: string) => void;
+  clearAllUsed: () => void;
 
-  // 已标记内容缓存 (基于内容持久化，而不是ID)
   usedContents: string[];
 
-  // Generation progress (not persisted)
   generating: boolean;
   progress: number;
   setGenerating: (generating: boolean) => void;
   setProgress: (progress: number) => void;
 
-  // Input and mode settings (persisted)
   inputText: string;
   autoMode: boolean;
   manualMode: 'single' | 'batch';
   exportSettings: ExportSettings;
   previewSettings: PreviewSettings;
 
-  // Actions for new persisted state
   setInputText: (text: string) => void;
   setAutoMode: (auto: boolean) => void;
   setManualMode: (mode: 'single' | 'batch') => void;
@@ -91,108 +85,121 @@ const defaultPreviewSettings: PreviewSettings = {
 export const useQRCodeStore = create<QRCodeState>()(
   persist(
     (set) => ({
-      // Single generation state
       singleConfig: defaultSingleConfig,
-      setSingleConfig: (config) => set((state) => ({
-        singleConfig: { ...state.singleConfig, ...config }
-      })),
-      
-      // Batch generation state
+      setSingleConfig: (config) =>
+        set((state) => ({
+          singleConfig: { ...state.singleConfig, ...config },
+        })),
+
       batchConfig: defaultBatchConfig,
-      setBatchConfig: (config) => set((state) => ({
-        batchConfig: { ...state.batchConfig, ...config }
-      })),
-      addBatchItem: (content, label) => set((state) => ({
-        batchConfig: {
-          ...state.batchConfig,
-          data: [
-            ...state.batchConfig.data,
-            {
-              id: generateId(),
-              content,
-              label: label || undefined,
-              status: 'pending',
-            }
-          ]
-        }
-      })),
-      removeBatchItem: (id) => set((state) => ({
-        batchConfig: {
-          ...state.batchConfig,
-          data: state.batchConfig.data.filter(item => item.id !== id)
-        }
-      })),
-      updateBatchItem: (id, item) => set((state) => ({
-        batchConfig: {
-          ...state.batchConfig,
-          data: state.batchConfig.data.map(i => 
-            i.id === id ? { ...i, ...item } : i
-          )
-        }
-      })),
-      clearBatchItems: () => set((state) => ({
-        batchConfig: { ...state.batchConfig, data: [] }
-      })),
-      setBatchData: (data) => set((state) => ({
-        batchConfig: { ...state.batchConfig, data }
-      })),
-      
-      // 已标记内容缓存
-      usedContents: [] as string[],
-
-      // Toggle used status for a single item (同时更新缓存)
-      toggleUsed: (id: string) => set((state) => {
-        const item = state.batchConfig.data.find((i: BatchItem) => i.id === id);
-        if (!item) return state;
-
-        const isCurrentlyUsed = item.used;
-        const newUsedContents = isCurrentlyUsed
-          ? state.usedContents.filter((c: string) => c !== item.content)
-          : [...state.usedContents, item.content];
-
-        return {
-          usedContents: newUsedContents,
+      setBatchConfig: (config) =>
+        set((state) => ({
+          batchConfig: { ...state.batchConfig, ...config },
+        })),
+      addBatchItem: (content, label) =>
+        set((state) => ({
           batchConfig: {
             ...state.batchConfig,
-            data: state.batchConfig.data.map((i: BatchItem) =>
-              i.id === id ? { ...i, used: !i.used } : i
-            )
-          }
-        };
-      }),
+            data: [
+              ...state.batchConfig.data,
+              {
+                id: generateId(),
+                content,
+                label: label || undefined,
+                status: 'pending',
+                used: state.usedContents.includes(content),
+              },
+            ],
+          },
+        })),
+      removeBatchItem: (id) =>
+        set((state) => ({
+          batchConfig: {
+            ...state.batchConfig,
+            data: state.batchConfig.data.filter((item) => item.id !== id),
+          },
+        })),
+      updateBatchItem: (id, item) =>
+        set((state) => ({
+          batchConfig: {
+            ...state.batchConfig,
+            data: state.batchConfig.data.map((entry) =>
+              entry.id === id ? { ...entry, ...item } : entry
+            ),
+          },
+        })),
+      clearBatchItems: () =>
+        set((state) => ({
+          batchConfig: { ...state.batchConfig, data: [] },
+        })),
+      setBatchData: (data) =>
+        set((state) => {
+          const usedContents = new Set(state.usedContents);
 
-      // Clear all used statuses
-      clearAllUsed: () => set((state) => ({
-        usedContents: [] as string[],
-        batchConfig: {
-          ...state.batchConfig,
-          data: state.batchConfig.data.map((item: BatchItem) => ({ ...item, used: false }))
-        }
-      })),
+          return {
+            batchConfig: {
+              ...state.batchConfig,
+              data: data.map((item) => ({
+                ...item,
+                used: item.used ?? usedContents.has(item.content),
+              })),
+            },
+          };
+        }),
 
-      // Generation progress (not persisted - in memory only)
+      usedContents: [],
+
+      toggleUsed: (id) =>
+        set((state) => {
+          const item = state.batchConfig.data.find((entry) => entry.id === id);
+          if (!item) return state;
+
+          const newUsedContents = item.used
+            ? state.usedContents.filter((content) => content !== item.content)
+            : [...state.usedContents, item.content];
+
+          return {
+            usedContents: newUsedContents,
+            batchConfig: {
+              ...state.batchConfig,
+              data: state.batchConfig.data.map((entry) =>
+                entry.id === id ? { ...entry, used: !entry.used } : entry
+              ),
+            },
+          };
+        }),
+
+      clearAllUsed: () =>
+        set((state) => ({
+          usedContents: [],
+          batchConfig: {
+            ...state.batchConfig,
+            data: state.batchConfig.data.map((item) => ({ ...item, used: false })),
+          },
+        })),
+
       generating: false,
       progress: 0,
-      setGenerating: (generating: boolean) => set({ generating }),
-      setProgress: (progress: number) => set({ progress }),
+      setGenerating: (generating) => set({ generating }),
+      setProgress: (progress) => set({ progress }),
 
-      // Input and mode settings (persisted)
       inputText: '',
       autoMode: true,
-      manualMode: 'single' as const,
+      manualMode: 'single',
       exportSettings: defaultExportSettings,
       previewSettings: defaultPreviewSettings,
 
-      // Actions for persisted state
-      setInputText: (inputText: string) => set({ inputText }),
-      setAutoMode: (autoMode: boolean) => set({ autoMode }),
-      setManualMode: (manualMode: 'single' | 'batch') => set({ manualMode }),
-      setExportSettings: (settings: Partial<ExportSettings>) => set((state) => ({
-        exportSettings: { ...state.exportSettings, ...settings }
-      })),
-      setPreviewSettings: (settings: Partial<PreviewSettings>) => set((state) => ({
-        previewSettings: { ...state.previewSettings, ...settings }
-      })),
+      setInputText: (inputText) => set({ inputText }),
+      setAutoMode: (autoMode) => set({ autoMode }),
+      setManualMode: (manualMode) => set({ manualMode }),
+      setExportSettings: (settings) =>
+        set((state) => ({
+          exportSettings: { ...state.exportSettings, ...settings },
+        })),
+      setPreviewSettings: (settings) =>
+        set((state) => ({
+          previewSettings: { ...state.previewSettings, ...settings },
+        })),
     }),
     {
       name: 'toolbox-config',
@@ -208,52 +215,46 @@ export const useQRCodeStore = create<QRCodeState>()(
         manualMode: state.manualMode,
         exportSettings: state.exportSettings,
         previewSettings: state.previewSettings,
-        usedContents: state.usedContents, // 持久化已标记内容
+        usedContents: state.usedContents,
       }),
-      version: 2, // 版本号升级
-      // 合并恢复的状态与默认状态，确保所有字段都存在
+      version: 2,
       merge: (persistedState, currentState) => {
-        const persisted = persistedState as Partial<QRCodeState> || {};
+        const persisted = (persistedState as Partial<QRCodeState>) || {};
+
         return {
           ...currentState,
           ...persisted,
-          // 确保 batchConfig 正确合并，data 始终是数组
           batchConfig: {
             ...currentState.batchConfig,
             ...(persisted.batchConfig || {}),
-            data: currentState.batchConfig.data, // data 不持久化，始终使用默认空数组
+            data: currentState.batchConfig.data,
           },
-          // 确保 exportSettings 正确合并，rows 有默认值
           exportSettings: {
             ...currentState.exportSettings,
             ...(persisted.exportSettings || {}),
-            // 确保 rows 有值（旧版本可能没有这个字段）
             rows: persisted.exportSettings?.rows || currentState.exportSettings.rows,
-            columns: persisted.exportSettings?.columns || currentState.exportSettings.columns,
+            columns:
+              persisted.exportSettings?.columns || currentState.exportSettings.columns,
           },
-          // 确保 previewSettings 正确合并
           previewSettings: {
             ...currentState.previewSettings,
             ...(persisted.previewSettings || {}),
           },
-          // 确保 singleConfig 正确合并
           singleConfig: {
             ...currentState.singleConfig,
             ...(persisted.singleConfig || {}),
           },
-          // 确保 usedContents 是数组
           usedContents: persisted.usedContents || [],
         };
       },
-      // 添加错误处理，防止损坏的状态导致空白页
       onRehydrateStorage: () => (_state, error) => {
         if (error) {
           console.error('Failed to rehydrate state:', error);
-          // 清除损坏的存储
+
           try {
             localStorage.removeItem('qrcode-toolbox-config');
-          } catch (e) {
-            console.error('Failed to clear storage:', e);
+          } catch (storageError) {
+            console.error('Failed to clear storage:', storageError);
           }
         }
       },
