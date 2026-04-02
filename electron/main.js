@@ -1,8 +1,31 @@
-﻿import { app, BrowserWindow, shell, Menu, dialog } from 'electron';
+import { accessSync } from 'fs';
+import electron from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+const { app, BrowserWindow, dialog, Menu, shell } = electron;
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function resolveRendererEntry() {
+  const possiblePaths = [
+    path.join(__dirname, '..', 'dist', 'index.html'),
+    path.join(process.resourcesPath, 'app.asar.unpacked', 'dist', 'index.html'),
+    path.join(process.resourcesPath, 'dist', 'index.html'),
+    path.join(app.getAppPath(), 'dist', 'index.html'),
+  ];
+
+  for (const currentPath of possiblePaths) {
+    try {
+      accessSync(currentPath);
+      return currentPath;
+    } catch {
+      continue;
+    }
+  }
+
+  return possiblePaths[0];
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -11,115 +34,93 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: 'Toolbox',
-    icon: path.join(__dirname, 'public/vite.svg'),
+    icon: path.join(__dirname, '..', 'public', 'vite.svg'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
     },
     backgroundColor: '#ffffff',
-    show: false
+    show: false,
   });
 
-  // 寮€鍙戞ā寮忓姞杞芥湰鍦版湇鍔″櫒
   if (process.env.NODE_ENV === 'development') {
     win.loadURL('http://localhost:1420');
     win.webContents.openDevTools();
   } else {
-    // 鐢熶骇妯″紡鍔犺浇鏈湴鏂囦欢
-    // 灏濊瘯澶氫釜鍙兘鐨勮矾寰?    const possiblePaths = [
-      path.join(__dirname, '..', 'dist', 'index.html'),
-      path.join(process.resourcesPath, 'app.asar.unpacked', 'dist', 'index.html'),
-      path.join(process.resourcesPath, 'dist', 'index.html'),
-      path.join(app.getAppPath(), 'dist', 'index.html'),
-    ];
-
-    let distPath = possiblePaths[0];
-    for (const p of possiblePaths) {
-      try {
-        require('fs').accessSync(p);
-        distPath = p;
-        break;
-      } catch (e) {
-        // 缁х画灏濊瘯涓嬩竴涓矾寰?      }
-    }
-
-    win.loadFile(distPath);
+    win.loadFile(resolveRendererEntry());
   }
 
-  // 鍔犺浇瀹屾垚鍚庢樉绀虹獥鍙?  win.once('ready-to-show', () => {
+  win.once('ready-to-show', () => {
     win.show();
   });
 
-  // 鎵撳紑澶栭儴閾炬帴
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
   });
 
-  // 鍒涘缓鑿滃崟
   const menu = Menu.buildFromTemplate([
     {
-      label: '鏂囦欢',
+      label: '文件',
       submenu: [
-        { role: 'reload', label: '閲嶆柊鍔犺浇' },
-        { role: 'forceReload', label: '寮哄埗閲嶆柊鍔犺浇' },
+        { role: 'reload', label: '重新加载' },
+        { role: 'forceReload', label: '强制重新加载' },
         { type: 'separator' },
-        { role: 'zoomIn', label: '鏀惧ぇ' },
-        { role: 'zoomOut', label: '缂╁皬' },
-        { role: 'resetZoom', label: '閲嶇疆缂╂斁' },
+        { role: 'zoomIn', label: '放大' },
+        { role: 'zoomOut', label: '缩小' },
+        { role: 'resetZoom', label: '重置缩放' },
         { type: 'separator' },
-        { role: 'toggleDevTools', label: '寮€鍙戣€呭伐鍏? },
+        { role: 'toggleDevTools', label: '开发者工具' },
         { type: 'separator' },
-        { role: 'close', label: '鍏抽棴' }
-      ]
+        { role: 'close', label: '关闭' },
+      ],
     },
     {
-      label: '缂栬緫',
+      label: '编辑',
       submenu: [
-        { role: 'undo', label: '鎾ら攢' },
-        { role: 'redo', label: '閲嶅仛' },
+        { role: 'undo', label: '撤销' },
+        { role: 'redo', label: '重做' },
         { type: 'separator' },
-        { role: 'cut', label: '鍓垏' },
-        { role: 'copy', label: '澶嶅埗' },
-        { role: 'paste', label: '绮樿创' },
-        { role: 'selectAll', label: '鍏ㄩ€? }
-      ]
+        { role: 'cut', label: '剪切' },
+        { role: 'copy', label: '复制' },
+        { role: 'paste', label: '粘贴' },
+        { role: 'selectAll', label: '全选' },
+      ],
     },
     {
-      label: '鏌ョ湅',
+      label: '查看',
       submenu: [
-        { role: 'reload', label: '閲嶆柊鍔犺浇' },
+        { role: 'reload', label: '重新加载' },
         { type: 'separator' },
-        { role: 'zoomIn', label: '鏀惧ぇ' },
-        { role: 'zoomOut', label: '缂╁皬' },
-        { role: 'resetZoom', label: '閲嶇疆缂╂斁' },
+        { role: 'zoomIn', label: '放大' },
+        { role: 'zoomOut', label: '缩小' },
+        { role: 'resetZoom', label: '重置缩放' },
         { type: 'separator' },
-        { role: 'togglefullscreen', label: '鍏ㄥ睆' }
-      ]
+        { role: 'togglefullscreen', label: '全屏' },
+      ],
     },
     {
-      label: '甯姪',
+      label: '帮助',
       submenu: [
         {
-          label: '鍏充簬',
+          label: '关于',
           click: () => {
             dialog.showMessageBox(win, {
               type: 'info',
-              title: '鍏充簬 Toolbox',
+              title: '关于 Toolbox',
               message: 'Toolbox',
-              detail: '鐗堟湰 1.2.0\n\n涓€涓姛鑳藉己澶х殑浜岀淮鐮佸伐鍏凤紝鏀寔鐢熸垚銆佽В鐮併€佹壒閲忓鐞嗙瓑鍔熻兘銆?
+              detail: `版本 ${app.getVersion()}\n\n一个功能强大的二维码工具，支持生成、解码、批量处理等功能。`,
             });
-          }
-        }
-      ]
-    }
+          },
+        },
+      ],
+    },
   ]);
 
   Menu.setApplicationMenu(menu);
 }
 
-// 搴旂敤鍑嗗灏辩华
 app.whenReady().then(() => {
   createWindow();
 
@@ -130,14 +131,12 @@ app.whenReady().then(() => {
   });
 });
 
-// 鎵€鏈夌獥鍙ｅ叧闂椂閫€鍑?app.on('window-all-closed', () => {
+app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-// 鐩戝惉鏈崟鑾风殑寮傚父
 process.on('uncaughtException', (error) => {
   console.error('Uncaught exception:', error);
 });
-
