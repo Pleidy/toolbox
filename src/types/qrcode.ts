@@ -1,6 +1,6 @@
 export interface QRCodeConfig {
   content: string;
-  label?: string;  // 空格后的标签文字，显示在二维码下方
+  label?: string;
   width: number;
   margin: number;
   errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H';
@@ -19,7 +19,7 @@ export interface BatchItem {
   customStyle?: Partial<QRCodeConfig>;
   filename?: string;
   status: 'pending' | 'generating' | 'completed' | 'failed';
-  used?: boolean;  // 是否已使用（用于标记功能）
+  used?: boolean;
   error?: string;
 }
 
@@ -30,6 +30,34 @@ export interface BatchConfig {
   filenamePattern: string;
 }
 
+export interface ExportSettings {
+  format: 'pdf' | 'multiple' | 'collage';
+  itemsPerPage: number;
+  columns: number;
+  rows: number;
+  splitThreshold: number;
+  expanded: boolean;
+}
+
+export interface PreviewSettings {
+  columns: number;
+  size: number;
+  rowHeight: number;
+}
+
+export interface QRCodeTab {
+  id: string;
+  name: string;
+  singleConfig: QRCodeConfig;
+  batchConfig: BatchConfig;
+  usedContents: string[];
+  inputText: string;
+  autoMode: boolean;
+  manualMode: 'single' | 'batch';
+  exportSettings: ExportSettings;
+  previewSettings: PreviewSettings;
+}
+
 export type Theme = 'light' | 'dark' | 'system';
 
 export interface ExportConfig {
@@ -38,7 +66,7 @@ export interface ExportConfig {
   filename: string;
 }
 
-export type ImportSource = 
+export type ImportSource =
   | { type: 'excel'; file: File }
   | { type: 'csv'; file: File }
   | { type: 'text'; file: File }
