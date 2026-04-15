@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+﻿import { useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Copy } from "lucide-react";
@@ -73,7 +73,7 @@ export function Encoder() {
       } else {
         switch (encodingType) {
           case 'url':
-            // 自动循环解码，最多 5 次
+            // 自动循环解码，最多尝试 5 次
             let decoded = input;
             for (let i = 0; i < 5; i++) {
               try {
@@ -218,31 +218,45 @@ export function Encoder() {
 
       {/* 底部标签栏 */}
       <div className="flex-shrink-0 p-2 border-t bg-muted/20">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto">
           {tabs.map(tab => (
-            <button
+            <div
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={"flex items-center gap-1 px-2 py-1 text-xs rounded " +
-                (tab.id === activeTabId ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
+              className={
+                "rounded-t-md border border-b-0 min-w-[120px] max-w-[180px] " +
+                (tab.id === activeTabId ? "bg-primary/12 border-primary/40 shadow-sm" : "bg-muted/50")
+              }
             >
-              <span>{tab.name}</span>
-              {tabs.length > 1 && (
-                <span
-                  className="ml-1 hover:text-destructive cursor-pointer"
-                  onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
+              <div className="flex items-center gap-1 px-2 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={
+                    "flex-1 truncate text-left text-[11px] font-medium " +
+                    (tab.id === activeTabId ? "text-foreground" : "text-muted-foreground")
+                  }
                 >
-                  ×
-                </span>
-              )}
-            </button>
+                  {tab.name}
+                </button>
+                {tabs.length > 1 && (
+                  <button
+                    type="button"
+                    className="h-5 w-5 flex items-center justify-center rounded hover:bg-accent text-muted-foreground hover:text-destructive"
+                    onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
+                    title="删除标签"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
           ))}
           <button
             onClick={addTab}
-            className="w-6 h-6 rounded hover:bg-muted flex items-center justify-center"
+            className="h-7 px-2.5 rounded border border-input bg-background hover:bg-accent flex items-center justify-center text-[11px] flex-shrink-0"
             title="新建标签"
           >
-            +
+            + 新建
           </button>
         </div>
       </div>

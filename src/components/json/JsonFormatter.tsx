@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+﻿import { useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -105,7 +105,7 @@ export function JsonFormatter() {
         updateTab(activeTab.id, { input: formatted });
       }
     } catch {
-      // 不是有效 JSON，使用默认粘贴行为
+      // 不是有效 JSON 时，使用默认粘贴行为
     }
   }, [updateTab, activeTab]);
 
@@ -142,23 +142,6 @@ export function JsonFormatter() {
               placeholder="在此粘贴 JSON..."
             />
           </CardContent>
-          <CardFooter className="flex-shrink-0 py-1 px-2 border-t">
-            <div className="flex items-center gap-0.5 overflow-x-auto">
-              {tabs.map(tab => (
-                <button 
-                  key={tab.id} 
-                  onClick={() => setActiveTab(tab.id)}
-                  className={"flex items-center gap-0.5 px-2 py-0.5 text-xs rounded transition-colors " + (tab.id === activeTabId ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground")}
-                >
-                  <span className="truncate max-w-[60px]">{tab.name}</span>
-                  <X className="w-2.5 h-2.5 hover:text-destructive cursor-pointer opacity-60 hover:opacity-100" onClick={(e) => handleCloseTab(e, tab.id)} />
-                </button>
-              ))}
-              <button onClick={addTab} className="flex items-center justify-center w-5 h-5 rounded hover:bg-muted transition-colors">
-                <Plus className="w-3 h-3" />
-              </button>
-            </div>
-          </CardFooter>
         </Card>
 
         <Card className="w-[60%] flex-shrink-0 flex flex-col min-w-0">
@@ -202,6 +185,47 @@ export function JsonFormatter() {
             </div>
           </CardFooter>
         </Card>
+      </div>
+
+      <div className="flex-shrink-0 p-2 border-t bg-muted/20">
+        <div className="flex items-center gap-1.5 overflow-x-auto">
+          {tabs.map(tab => (
+            <div
+              key={tab.id}
+              className={
+                "rounded-t-md border border-b-0 min-w-[120px] max-w-[180px] " +
+                (tab.id === activeTabId ? "bg-primary/12 border-primary/40 shadow-sm" : "bg-muted/50")
+              }
+            >
+              <div className="flex items-center gap-1 px-2 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={
+                    "flex-1 truncate text-left text-[11px] font-medium " +
+                    (tab.id === activeTabId ? "text-foreground" : "text-muted-foreground")
+                  }
+                >
+                  {tab.name}
+                </button>
+                <button
+                  type="button"
+                  className="h-5 w-5 flex items-center justify-center rounded hover:bg-accent text-muted-foreground hover:text-destructive"
+                  onClick={(e) => handleCloseTab(e, tab.id)}
+                  title="删除标签"
+                >
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              </div>
+            </div>
+          ))}
+          <button
+            onClick={addTab}
+            className="h-7 px-2.5 rounded border border-input bg-background hover:bg-accent flex items-center justify-center text-[11px] flex-shrink-0"
+          >
+            <Plus className="w-3 h-3 mr-1" />新建
+          </button>
+        </div>
       </div>
     </div>
   );
