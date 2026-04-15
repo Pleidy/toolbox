@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { QrCode, Settings, LayoutGrid, FileJson, Sun, Moon, Search, X, PanelLeftClose, PanelLeftOpen, Code, Image } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { QrCode, Settings, LayoutGrid, FileJson, Sun, Moon, Search, X, PanelLeftClose, PanelLeftOpen, Code, Image, DownloadCloud, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Switch } from '../ui/Switch';
@@ -16,6 +16,12 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
   const { sidebarOpen, theme, setSidebarOpen } = useAppStore();
   const { setTheme: setNextTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
+    phase: 'idle',
+    message: '未检查更新',
+    progress: 0,
+    version: null,
+  });
 
   const handleThemeChange = (checked: boolean) => {
     const newTheme = checked ? 'dark' : 'light';
@@ -48,6 +54,37 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
     : tools.map(tool => ({ ...tool, isHidden: false }));
 
   const clearSearch = () => setSearchQuery('');
+  const isCheckingUpdate =
+    updateStatus.phase === 'checking' || updateStatus.phase === 'downloading';
+
+  useEffect(() => {
+    if (!window.electronAPI?.updater) {
+      return;
+    }
+
+    void window.electronAPI.updater.getStatus().then(setUpdateStatus).catch(() => {
+      // ignore
+    });
+
+    const unsubscribe = window.electronAPI.updater.onStatus((status) => {
+      setUpdateStatus(status);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const handleManualUpdateCheck = async () => {
+    if (!window.electronAPI?.updater || isCheckingUpdate) {
+      return;
+    }
+
+    try {
+      const status = await window.electronAPI.updater.checkForUpdates();
+      setUpdateStatus(status);
+    } catch (error) {
+      console.error('Manual update check failed:', error);
+    }
+  };
 
   // 收缩状态：只显示图标
   const isCollapsed = !sidebarOpen;
@@ -170,6 +207,28 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
           <Settings className={cn("h-4 w-4", isCollapsed ? "" : "mr-2")} />
           {!isCollapsed && "设置"}
         </Button>
+
+        <Button
+          variant="outline"
+          className={cn("w-full h-10 mt-2", isCollapsed && "justify-center px-0")}
+          onClick={handleManualUpdateCheck}
+          disabled={isCheckingUpdate}
+          title={isCollapsed ? '检查更新' : undefined}
+        >
+          {isCheckingUpdate ? (
+            <RefreshCw className={cn("h-4 w-4 animate-spin", isCollapsed ? "" : "mr-2")} />
+          ) : (
+            <DownloadCloud className={cn("h-4 w-4", isCollapsed ? "" : "mr-2")} />
+          )}
+          {!isCollapsed && "检查更新"}
+        </Button>
+
+        {!isCollapsed && (
+          <p className="mt-2 text-[11px] text-muted-foreground leading-4">
+            {updateStatus.message}
+            {updateStatus.phase === 'downloading' && ` ${Math.round(updateStatus.progress)}%`}
+          </p>
+        )}
       </div>
     </aside>
   );
