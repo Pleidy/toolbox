@@ -12,16 +12,18 @@ interface UpdateStatus {
   version?: string | null;
 }
 
+interface UpdateSettings {
+  autoUpdateEnabled: boolean;
+}
+
 interface Window {
   electronAPI?: {
     platform: string;
     updater?: {
       checkForUpdates: () => Promise<UpdateStatus>;
       getStatus: () => Promise<UpdateStatus>;
-      getSettings: () => Promise<{ autoUpdateEnabled: boolean }>;
-      setAutoUpdateEnabled: (
-        enabled: boolean
-      ) => Promise<{ autoUpdateEnabled: boolean }>;
+      getSettings: () => Promise<UpdateSettings>;
+      setAutoUpdateEnabled: (enabled: boolean) => Promise<UpdateSettings>;
       onStatus: (callback: (payload: UpdateStatus) => void) => () => void;
     };
   };

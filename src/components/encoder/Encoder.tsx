@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Copy } from "lucide-react";
 import { useEncoderStore } from "@/stores/useEncoderStore";
+import { WorkspaceTabs } from "@/components/ui/WorkspaceTabs";
 
 // 编码操作配置
 type EncodingMode = 'encode' | 'decode';
@@ -27,6 +28,8 @@ export function Encoder() {
   const activeTabId = useEncoderStore(state => state.activeTabId);
   const addTab = useEncoderStore(state => state.addTab);
   const closeTab = useEncoderStore(state => state.closeTab);
+  const renameTab = useEncoderStore(state => state.renameTab);
+  const moveTab = useEncoderStore(state => state.moveTab);
   const setActiveTab = useEncoderStore(state => state.setActiveTab);
   const updateTab = useEncoderStore(state => state.updateTab);
 
@@ -216,50 +219,16 @@ export function Encoder() {
         </Card>
       </div>
 
-      {/* 底部标签栏 */}
-      <div className="flex-shrink-0 p-2 border-t bg-muted/20">
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          {tabs.map(tab => (
-            <div
-              key={tab.id}
-              className={
-                "rounded-t-md border border-b-0 min-w-[120px] max-w-[180px] " +
-                (tab.id === activeTabId ? "bg-primary/12 border-primary/40 shadow-sm" : "bg-muted/50")
-              }
-            >
-              <div className="flex items-center gap-1 px-2 py-1.5">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={
-                    "flex-1 truncate text-left text-[11px] font-medium " +
-                    (tab.id === activeTabId ? "text-foreground" : "text-muted-foreground")
-                  }
-                >
-                  {tab.name}
-                </button>
-                {tabs.length > 1 && (
-                  <button
-                    type="button"
-                    className="h-5 w-5 flex items-center justify-center rounded hover:bg-accent text-muted-foreground hover:text-destructive"
-                    onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
-                    title="删除标签"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-          <button
-            onClick={addTab}
-            className="h-7 px-2.5 rounded border border-input bg-background hover:bg-accent flex items-center justify-center text-[11px] flex-shrink-0"
-            title="新建标签"
-          >
-            + 新建
-          </button>
-        </div>
-      </div>
+      <WorkspaceTabs
+        tabs={tabs}
+        activeTabId={activeTabId}
+        onAdd={addTab}
+        onSelect={setActiveTab}
+        onRename={renameTab}
+        onDelete={closeTab}
+        onMove={moveTab}
+        addLabel="新建"
+      />
     </div>
   );
 }

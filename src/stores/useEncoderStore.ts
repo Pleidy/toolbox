@@ -21,6 +21,8 @@ interface EncoderState {
   // Actions
   addTab: () => void;
   closeTab: (id: string) => void;
+  renameTab: (id: string, name: string) => void;
+  moveTab: (fromId: string, toId: string) => void;
   setActiveTab: (id: string) => void;
   updateTab: (id: string, updates: Partial<EncoderTab>) => void;
 }
@@ -60,6 +62,31 @@ export const useEncoderStore = create<EncoderState>()(
           tabs: newTabs,
           activeTabId: newTabs[0]?.id || null,
         });
+      },
+
+      renameTab: (id: string, name: string) => {
+        const { tabs } = get();
+        set({
+          tabs: tabs.map((tab) =>
+            tab.id === id ? { ...tab, name: name.trim() || tab.name } : tab
+          ),
+        });
+      },
+
+      moveTab: (fromId: string, toId: string) => {
+        if (fromId === toId) return;
+
+        const { tabs } = get();
+        const fromIndex = tabs.findIndex((tab) => tab.id === fromId);
+        const toIndex = tabs.findIndex((tab) => tab.id === toId);
+
+        if (fromIndex === -1 || toIndex === -1) return;
+
+        const nextTabs = [...tabs];
+        const [movedTab] = nextTabs.splice(fromIndex, 1);
+        nextTabs.splice(toIndex, 0, movedTab);
+
+        set({ tabs: nextTabs });
       },
 
       setActiveTab: (id: string) => {

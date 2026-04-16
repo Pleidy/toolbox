@@ -80,6 +80,15 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
       setUpdateStatus(status);
     });
 
+    void window.electronAPI.updater
+      .getSettings()
+      .then((settings) => {
+        setAutoUpdateEnabled(settings.autoUpdateEnabled);
+      })
+      .catch(() => {
+        // ignore
+      });
+
     return unsubscribe;
   }, []);
 
@@ -93,6 +102,16 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
       setUpdateStatus(status);
     } catch (error) {
       console.error('Manual update check failed:', error);
+    }
+  };
+
+  const handleAutoUpdateToggle = async (enabled: boolean) => {
+    setAutoUpdateEnabled(enabled);
+
+    try {
+      await window.electronAPI?.updater?.setAutoUpdateEnabled(enabled);
+    } catch (error) {
+      console.error('Failed to update auto-update setting:', error);
     }
   };
 
@@ -245,7 +264,7 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
                 </div>
                 <Switch
                   checked={autoUpdateEnabled}
-                  onCheckedChange={setAutoUpdateEnabled}
+                  onCheckedChange={handleAutoUpdateToggle}
                 />
               </div>
 
