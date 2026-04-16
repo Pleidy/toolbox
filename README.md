@@ -1,4 +1,4 @@
-# QRCode Toolbox
+# Toolbox
 
 一个基于 `Electron + React + TypeScript + Vite` 的桌面工具箱，当前核心能力聚焦在二维码生成、批量处理、导入导出和二维码解析。
 
@@ -112,7 +112,7 @@ release/
 当前项目版本：
 
 ```text
-1.2.0
+1.3.1
 ```
 
 ## 目录结构

@@ -39,9 +39,9 @@ export default defineConfig(({ mode }) => ({
     react(),
     crx({
       manifest: {
-        name: 'QRCode Toolbox',
-        description: '二维码生成和解析工具',
-        version: '1.2.0',
+        name: 'Toolbox',
+        description: '工具箱',
+        version: '1.3.1',
         manifest_version: 3,
         action: {
           default_popup: 'index.html',

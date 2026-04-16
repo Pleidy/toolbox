@@ -18,6 +18,10 @@ interface Window {
     updater?: {
       checkForUpdates: () => Promise<UpdateStatus>;
       getStatus: () => Promise<UpdateStatus>;
+      getSettings: () => Promise<{ autoUpdateEnabled: boolean }>;
+      setAutoUpdateEnabled: (
+        enabled: boolean
+      ) => Promise<{ autoUpdateEnabled: boolean }>;
       onStatus: (callback: (payload: UpdateStatus) => void) => () => void;
     };
   };

@@ -1,4 +1,4 @@
-import { accessSync } from 'fs';
+import { accessSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import electron from 'electron';
 import updaterPackage from 'electron-updater';
 import path from 'path';
@@ -8,15 +8,44 @@ const { app, BrowserWindow, dialog, ipcMain, Menu, shell } = electron;
 const { autoUpdater } = updaterPackage;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const settingsFilePath = path.join(app.getPath('userData'), 'settings.json');
 
 let mainWindow = null;
 let manualCheckRequested = false;
+let appSettings = {
+  autoUpdateEnabled: true,
+};
 let updateState = {
   phase: 'idle',
   message: '未检查更新',
   progress: 0,
   version: null,
 };
+
+function loadSettings() {
+  try {
+    if (!existsSync(settingsFilePath)) {
+      return;
+    }
+
+    const raw = readFileSync(settingsFilePath, 'utf8');
+    const parsed = JSON.parse(raw);
+    appSettings = {
+      ...appSettings,
+      ...parsed,
+    };
+  } catch (error) {
+    console.error('Failed to load settings:', error);
+  }
+}
+
+function saveSettings() {
+  try {
+    writeFileSync(settingsFilePath, JSON.stringify(appSettings, null, 2), 'utf8');
+  } catch (error) {
+    console.error('Failed to save settings:', error);
+  }
+}
 
 function setUpdateState(nextState) {
   updateState = {
@@ -190,7 +219,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: 'Toolbox',
-    icon: path.join(__dirname, '..', 'public', 'vite.svg'),
+    icon: path.join(__dirname, '..', 'icons', 'icon.ico'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -303,11 +332,24 @@ ipcMain.handle('updater:check-for-updates', async () => {
 
 ipcMain.handle('updater:get-status', async () => updateState);
 
+ipcMain.handle('updater:get-settings', async () => ({
+  autoUpdateEnabled: appSettings.autoUpdateEnabled,
+}));
+
+ipcMain.handle('updater:set-auto-update-enabled', async (_event, enabled) => {
+  appSettings.autoUpdateEnabled = Boolean(enabled);
+  saveSettings();
+  return {
+    autoUpdateEnabled: appSettings.autoUpdateEnabled,
+  };
+});
+
 app.whenReady().then(() => {
+  loadSettings();
   setupAutoUpdater();
   createWindow();
 
-  if (process.env.NODE_ENV !== 'development') {
+  if (process.env.NODE_ENV !== 'development' && appSettings.autoUpdateEnabled) {
     setTimeout(() => {
       autoUpdater.checkForUpdates().catch((error) => {
         console.error('Startup update check failed:', error);
