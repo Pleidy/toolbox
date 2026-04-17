@@ -3,7 +3,7 @@ import { Card, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { QRCodeConfig, StructuredPreviewLayout } from '@/types';
 import { generateQRCode, configToOptions } from '@/lib/qrcode';
-import { Loader2, Trash2, RefreshCw, XCircle, Copy, Check } from 'lucide-react';
+import { Loader2, Trash2, RefreshCw, XCircle, Copy, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { useQRCodeStore } from '@/stores';
 
 interface BatchPreviewProps {
@@ -13,6 +13,15 @@ interface BatchPreviewProps {
   rowHeight?: number;
   extraActions?: ReactNode;
   structuredLayout?: StructuredPreviewLayout | null;
+  structuredCollapsedGroupIds?: string[];
+  onStructuredCollapsedGroupIdsChange?: (groupIds: string[]) => void;
+}
+
+interface StructuredDisplayRow {
+  key: string;
+  groupId: string | null;
+  isGroupHeader: boolean;
+  cells: StructuredPreviewLayout['rows'][number];
 }
 
 const GRID_GAP = 16;
@@ -25,6 +34,8 @@ export function BatchPreview({
   rowHeight = 180,
   extraActions,
   structuredLayout,
+  structuredCollapsedGroupIds = [],
+  onStructuredCollapsedGroupIdsChange,
 }: BatchPreviewProps) {
   const batchConfig = useQRCodeStore((state) => state.batchConfig);
   const removeBatchItem = useQRCodeStore((state) => state.removeBatchItem);
@@ -42,6 +53,10 @@ export function BatchPreview({
   const generationRunRef = useRef(0);
 
   const batchData = batchConfig?.data || [];
+  const batchItemById = useMemo(
+    () => new Map(batchData.map((item) => [item.id, item])),
+    [batchData]
+  );
 
   const configSignature = useMemo(
     () =>
@@ -73,11 +88,69 @@ export function BatchPreview({
     () => batchData.reduce((count, item) => count + (item.used ? 1 : 0), 0),
     [batchData]
   );
+  const structuredDisplay = useMemo(() => {
+    if (!structuredLayout) {
+      return {
+        rows: [] as StructuredDisplayRow[],
+        allGroupIds: [] as string[],
+      };
+    }
+
+    const collapsedSet = new Set(structuredCollapsedGroupIds);
+    const allGroupIds: string[] = [];
+    const displayRows: StructuredDisplayRow[] = [];
+    let currentGroupId: string | null = null;
+    let currentGroupCollapsed = false;
+
+    structuredLayout.rows.forEach((row, rowIndex) => {
+      const firstCell = row[0];
+      const rowToken =
+        firstCell?.key.split('-')[0] ?? `row-${rowIndex}`;
+      const hasGroupHeader = !!firstCell && !firstCell.empty;
+
+      if (hasGroupHeader) {
+        currentGroupId = `group-${rowToken}`;
+        allGroupIds.push(currentGroupId);
+        currentGroupCollapsed = collapsedSet.has(currentGroupId);
+        displayRows.push({
+          key: `display-${rowToken}`,
+          groupId: currentGroupId,
+          isGroupHeader: true,
+          cells: row,
+        });
+        return;
+      }
+
+      if (!currentGroupId) {
+        displayRows.push({
+          key: `display-${rowToken}`,
+          groupId: null,
+          isGroupHeader: false,
+          cells: row,
+        });
+        return;
+      }
+
+      if (!currentGroupCollapsed) {
+        displayRows.push({
+          key: `display-${rowToken}`,
+          groupId: currentGroupId,
+          isGroupHeader: false,
+          cells: row,
+        });
+      }
+    });
+
+    return {
+      rows: displayRows,
+      allGroupIds,
+    };
+  }, [structuredCollapsedGroupIds, structuredLayout]);
 
   const layoutColumns = structuredLayout?.columnCount || columns;
   const rowStride = rowHeight + GRID_GAP;
   const rowCount = structuredLayout
-    ? structuredLayout.rows.length
+    ? structuredDisplay.rows.length
     : Math.ceil(batchData.length / columns);
   const startRow = Math.max(0, Math.floor(scrollTop / rowStride) - OVERSCAN_ROWS);
   const visibleRowCount = Math.max(
@@ -92,8 +165,8 @@ export function BatchPreview({
     [batchData, startIndex, endIndex]
   );
   const visibleStructuredRows = useMemo(
-    () => (structuredLayout ? structuredLayout.rows.slice(startRow, endRow) : []),
-    [endRow, startRow, structuredLayout]
+    () => (structuredLayout ? structuredDisplay.rows.slice(startRow, endRow) : []),
+    [endRow, startRow, structuredDisplay.rows, structuredLayout]
   );
   const topOffset = startRow * rowStride;
   const totalHeight = rowCount === 0 ? 0 : rowCount * rowStride - GRID_GAP;
@@ -147,12 +220,9 @@ export function BatchPreview({
 
     const missingItems = structuredLayout
       ? visibleStructuredRows
-          .flatMap((row) => row)
+          .flatMap((row) => row.cells)
           .filter((cell) => cell.itemId && !cell.empty)
-          .map((cell) => {
-            const item = batchData.find((entry) => entry.id === cell.itemId);
-            return item || null;
-          })
+          .map((cell) => (cell.itemId ? batchItemById.get(cell.itemId) || null : null))
           .filter((item): item is NonNullable<typeof item> => !!item)
           .filter((item) => !previewCacheRef.current.has(item.id))
       : visibleItems.filter((item) => !previewCacheRef.current.has(item.id));
@@ -206,7 +276,7 @@ export function BatchPreview({
     return () => {
       cancelled = true;
     };
-  }, [batchData, batchData.length, configSignature, refreshToken, structuredLayout, visibleItems, visibleStructuredRows]);
+  }, [batchData.length, batchItemById, configSignature, refreshToken, structuredLayout, visibleItems, visibleStructuredRows]);
 
   const handleCopy = useCallback(async (content: string, id: string, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -241,6 +311,28 @@ export function BatchPreview({
   const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
     setScrollTop(event.currentTarget.scrollTop);
   }, []);
+
+  const handleCollapseAll = useCallback(() => {
+    onStructuredCollapsedGroupIdsChange?.(structuredDisplay.allGroupIds);
+  }, [onStructuredCollapsedGroupIdsChange, structuredDisplay.allGroupIds]);
+
+  const handleExpandAll = useCallback(() => {
+    onStructuredCollapsedGroupIdsChange?.([]);
+  }, [onStructuredCollapsedGroupIdsChange]);
+
+  const handleToggleGroup = useCallback(
+    (groupId: string) => {
+      if (!onStructuredCollapsedGroupIdsChange) {
+        return;
+      }
+
+      const nextGroupIds = structuredCollapsedGroupIds.includes(groupId)
+        ? structuredCollapsedGroupIds.filter((id) => id !== groupId)
+        : [...structuredCollapsedGroupIds, groupId];
+      onStructuredCollapsedGroupIdsChange(nextGroupIds);
+    },
+    [onStructuredCollapsedGroupIdsChange, structuredCollapsedGroupIds]
+  );
 
   if (batchData.length === 0) {
     return (
@@ -284,6 +376,26 @@ export function BatchPreview({
           </div>
 
           <div className="flex items-center gap-1.5">
+            {structuredDisplay.allGroupIds.length > 0 && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleExpandAll}
+                  className="h-8 rounded-lg px-2.5 text-xs"
+                >
+                  全部展开
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCollapseAll}
+                  className="h-8 rounded-lg px-2.5 text-xs"
+                >
+                  全部折叠
+                </Button>
+              </>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -344,11 +456,14 @@ export function BatchPreview({
             >
               {structuredLayout
                 ? visibleStructuredRows.map((row) =>
-                    row.map((cell) => {
+                    row.cells.map((cell, cellIndex) => {
                       const previewUrl = cell.itemId
                         ? previewCacheRef.current.get(cell.itemId)
                         : undefined;
                       const isRemoved = !cell.empty && !cell.itemId;
+                      const isCollapsedGroup =
+                        !!row.groupId &&
+                        structuredCollapsedGroupIds.includes(row.groupId);
 
                       return (
                         <button
@@ -368,11 +483,30 @@ export function BatchPreview({
                             }
                           }}
                         >
-                          {cell.sequence !== null && (
-                            <div className="absolute left-3 top-3 z-10 rounded-full border border-border/70 bg-background/90 px-2 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm">
-                              #{cell.sequence}
-                            </div>
-                          )}
+                          <div className="absolute left-3 top-3 z-10 flex items-center gap-1">
+                            {row.isGroupHeader && cellIndex === 0 && row.groupId && (
+                              <button
+                                type="button"
+                                className="flex h-6 w-6 items-center justify-center rounded-full border border-border/70 bg-background/90 text-muted-foreground shadow-sm"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleToggleGroup(row.groupId!);
+                                }}
+                                title={isCollapsedGroup ? '展开分组' : '折叠分组'}
+                              >
+                                {isCollapsedGroup ? (
+                                  <ChevronRight className="h-3.5 w-3.5" />
+                                ) : (
+                                  <ChevronDown className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            )}
+                            {cell.sequence !== null && (
+                              <div className="rounded-full border border-border/70 bg-background/90 px-2 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm">
+                                #{cell.sequence}
+                              </div>
+                            )}
+                          </div>
 
                           {cell.itemId && (
                             <div className="absolute right-3 top-3 z-20 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">

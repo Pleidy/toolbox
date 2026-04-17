@@ -80,6 +80,20 @@ function buildBatchItems(parsedLines: Array<{ content: string; label: string }>)
   }));
 }
 
+function buildStructuredGroupIds(source: { rows: string[][]; selectedColumnIndexes: number[] }) {
+  if (source.selectedColumnIndexes.length === 0) {
+    return [];
+  }
+
+  const firstColumnIndex = source.selectedColumnIndexes[0];
+  return source.rows.reduce<string[]>((groupIds, row, rowIndex) => {
+    if ((row[firstColumnIndex] || '').trim()) {
+      groupIds.push(`group-${rowIndex}`);
+    }
+    return groupIds;
+  }, []);
+}
+
 export function QRCodeGenerator() {
   const [activeTab, setActiveTab] = useState<'generate' | 'decode'>('generate');
 
@@ -133,7 +147,9 @@ function GenerateMode() {
     previewSettings,
     setPreviewSettings,
     structuredPreviewSource,
+    structuredPreviewCollapsedGroupIds,
     setStructuredPreviewSource,
+    setStructuredPreviewCollapsedGroupIds,
     generating,
     progress,
     progressLabel,
@@ -316,12 +332,14 @@ function GenerateMode() {
     setInputText('https://example.com');
     clearBatchItems();
     setStructuredPreviewSource(null);
+    setStructuredPreviewCollapsedGroupIds([]);
   };
 
   const clearInput = () => {
     setInputText('');
     clearBatchItems();
     setStructuredPreviewSource(null);
+    setStructuredPreviewCollapsedGroupIds([]);
   };
 
   const handleCancelExport = () => {
@@ -381,6 +399,7 @@ https://example.com/order/2 订单B`}
                   setInputText(event.target.value);
                   if (structuredPreviewSource) {
                     setStructuredPreviewSource(null);
+                    setStructuredPreviewCollapsedGroupIds([]);
                   }
                 }}
               />
@@ -480,6 +499,8 @@ https://example.com/order/2 订单B`}
               qrSize={previewSettings.size}
               rowHeight={previewSettings.rowHeight}
               structuredLayout={structuredPreviewLayout}
+              structuredCollapsedGroupIds={structuredPreviewCollapsedGroupIds}
+              onStructuredCollapsedGroupIdsChange={setStructuredPreviewCollapsedGroupIds}
               extraActions={
                 <Button
                   variant="outline"
@@ -689,6 +710,9 @@ https://example.com/order/2 订单B`}
         onImport={({ contents, structuredPreviewSource }: BatchImportResult) => {
           setInputText(contents.join('\n'));
           setStructuredPreviewSource(structuredPreviewSource);
+          setStructuredPreviewCollapsedGroupIds(
+            structuredPreviewSource ? buildStructuredGroupIds(structuredPreviewSource) : []
+          );
         }}
       />
     </div>

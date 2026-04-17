@@ -80,6 +80,7 @@ export interface QRCodeTab {
   exportSettings: ExportSettings;
   previewSettings: PreviewSettings;
   structuredPreviewSource: StructuredPreviewSource | null;
+  structuredPreviewCollapsedGroupIds: string[];
 }
 
 export type Theme = 'light' | 'dark' | 'system';

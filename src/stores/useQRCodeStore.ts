@@ -64,6 +64,7 @@ function createDefaultTab(name = DEFAULT_TAB_NAME): QRCodeTab {
     exportSettings: createDefaultExportSettings(),
     previewSettings: createDefaultPreviewSettings(),
     structuredPreviewSource: null,
+    structuredPreviewCollapsedGroupIds: [],
   };
 }
 
@@ -85,6 +86,7 @@ function cloneTab(tab: QRCodeTab): QRCodeTab {
           selectedColumnIndexes: [...tab.structuredPreviewSource.selectedColumnIndexes],
         }
       : null,
+    structuredPreviewCollapsedGroupIds: [...tab.structuredPreviewCollapsedGroupIds],
   };
 }
 
@@ -113,6 +115,7 @@ function buildTabSnapshot(state: QRCodeState, tab: QRCodeTab): QRCodeTab {
           selectedColumnIndexes: [...state.structuredPreviewSource.selectedColumnIndexes],
         }
       : null,
+    structuredPreviewCollapsedGroupIds: [...state.structuredPreviewCollapsedGroupIds],
   };
 }
 
@@ -136,6 +139,7 @@ function buildTopLevelStateFromTab(tab: QRCodeTab) {
           selectedColumnIndexes: [...tab.structuredPreviewSource.selectedColumnIndexes],
         }
       : null,
+    structuredPreviewCollapsedGroupIds: [...tab.structuredPreviewCollapsedGroupIds],
   };
 }
 
@@ -197,6 +201,13 @@ function syncActiveTab<T extends Partial<QRCodeState>>(
                   : null,
               }
             : {}),
+          ...(updates.structuredPreviewCollapsedGroupIds !== undefined
+            ? {
+                structuredPreviewCollapsedGroupIds: [
+                  ...updates.structuredPreviewCollapsedGroupIds,
+                ],
+              }
+            : {}),
         }
       : buildTabSnapshot(state, tab)
   );
@@ -253,9 +264,12 @@ interface QRCodeState {
   setExportSettings: (settings: Partial<ExportSettings>) => void;
   setPreviewSettings: (settings: Partial<PreviewSettings>) => void;
   structuredPreviewSource: StructuredPreviewSource | null;
+  structuredPreviewCollapsedGroupIds: string[];
   setStructuredPreviewSource: (
     source: StructuredPreviewSource | null
   ) => void;
+  setStructuredPreviewCollapsedGroupIds: (groupIds: string[]) => void;
+  toggleStructuredPreviewGroup: (groupId: string) => void;
 }
 
 const defaultTab = createDefaultTab();
@@ -485,6 +499,7 @@ export const useQRCodeStore = create<QRCodeState>()(
       exportSettings: { ...defaultTab.exportSettings },
       previewSettings: { ...defaultTab.previewSettings },
       structuredPreviewSource: null,
+      structuredPreviewCollapsedGroupIds: [],
 
       setInputText: (inputText) =>
         set((state) => syncActiveTab(state, { inputText })),
@@ -506,6 +521,20 @@ export const useQRCodeStore = create<QRCodeState>()(
         ),
       setStructuredPreviewSource: (structuredPreviewSource) =>
         set((state) => syncActiveTab(state, { structuredPreviewSource })),
+      setStructuredPreviewCollapsedGroupIds: (structuredPreviewCollapsedGroupIds) =>
+        set((state) =>
+          syncActiveTab(state, { structuredPreviewCollapsedGroupIds })
+        ),
+      toggleStructuredPreviewGroup: (groupId) =>
+        set((state) => {
+          const nextGroupIds = state.structuredPreviewCollapsedGroupIds.includes(groupId)
+            ? state.structuredPreviewCollapsedGroupIds.filter((id) => id !== groupId)
+            : [...state.structuredPreviewCollapsedGroupIds, groupId];
+
+          return syncActiveTab(state, {
+            structuredPreviewCollapsedGroupIds: nextGroupIds,
+          });
+        }),
     }),
     {
       name: 'toolbox-config',
@@ -551,6 +580,9 @@ export const useQRCodeStore = create<QRCodeState>()(
                       ],
                     }
                   : null,
+                structuredPreviewCollapsedGroupIds: [
+                  ...(tab.structuredPreviewCollapsedGroupIds || []),
+                ],
               }))
             : [createDefaultTab()];
 
