@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { QRCodeConfig } from '@/types';
@@ -14,7 +14,7 @@ interface BatchPreviewProps {
   extraActions?: ReactNode;
 }
 
-const GRID_GAP = 15;
+const GRID_GAP = 16;
 const OVERSCAN_ROWS = 2;
 
 export function BatchPreview({
@@ -136,9 +136,7 @@ export function BatchPreview({
       return;
     }
 
-    const missingItems = visibleItems.filter(
-      (item) => !previewCacheRef.current.has(item.id)
-    );
+    const missingItems = visibleItems.filter((item) => !previewCacheRef.current.has(item.id));
 
     if (missingItems.length === 0) {
       setGenerating(false);
@@ -191,20 +189,17 @@ export function BatchPreview({
     };
   }, [batchData.length, visibleItems, configSignature, refreshToken]);
 
-  const handleCopy = useCallback(
-    async (content: string, id: string, event: React.MouseEvent) => {
-      event.stopPropagation();
+  const handleCopy = useCallback(async (content: string, id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
 
-      try {
-        await navigator.clipboard.writeText(content);
-        setCopiedId(id);
-        setTimeout(() => setCopiedId(null), 1500);
-      } catch (error) {
-        console.error('复制失败:', error);
-      }
-    },
-    []
-  );
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch (error) {
+      console.error('复制内容失败:', error);
+    }
+  }, []);
 
   const handleRefresh = useCallback(() => {
     previewCacheRef.current.clear();
@@ -230,76 +225,81 @@ export function BatchPreview({
 
   if (batchData.length === 0) {
     return (
-      <Card className="h-full">
-        <CardContent className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground text-sm">请在左侧输入要生成二维码的内容</p>
+      <Card className="h-full border-border/70 shadow-none">
+        <CardContent className="flex h-full items-center justify-center">
+          <div className="space-y-1 text-center">
+            <p className="text-sm font-medium text-foreground">还没有可预览的二维码</p>
+            <p className="text-sm text-muted-foreground">在左侧输入内容或导入文件后，这里会按可见区域即时生成预览。</p>
+          </div>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardContent className="flex-1 flex flex-col overflow-hidden p-3">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <span className="text-sm text-muted-foreground">
-              {batchData.length} 个二维码
+    <Card className="h-full border-border/70 shadow-none">
+      <CardContent className="flex h-full flex-col overflow-hidden p-4">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-base font-semibold text-foreground">{batchData.length} 个二维码</span>
+              <span className="rounded-full border border-border/70 bg-muted/55 px-2 py-0.5 text-[11px] text-muted-foreground">
+                按可见区域即时生成
+              </span>
               {usedCount > 0 && (
-                <span className="ml-2 text-green-600 dark:text-green-400">
-                  ({usedCount} 已标记)
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
+                  已标记 {usedCount} 项
                 </span>
               )}
-            </span>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              预览按可见区域生成，滚动时按需加载，可承受更大的批量数据。
+            </div>
+            <p className="text-xs text-muted-foreground">
+              点击卡片可快速标记，悬停后可复制内容或删除单项。大批量数据只会渲染当前可见内容，避免预览区阻塞。
             </p>
           </div>
-          <div className="flex items-center gap-1">
+
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={generating}
+              className="h-8 rounded-lg border-border/70 px-2.5 text-xs"
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  生成中 {Math.round(progress)}%
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                  刷新预览
+                </>
+              )}
+            </Button>
             {usedCount > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={clearAllUsed}
                 disabled={generating}
-                className="h-7 px-2 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900"
+                className="h-8 rounded-lg px-2.5 text-xs text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300"
                 title="取消所有标记"
               >
-                <XCircle className="mr-1 h-3 w-3" />
-                <span className="text-xs">取消标记</span>
+                <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                取消标记
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={generating}
-              className="h-7 px-2"
-            >
-              {generating ? (
-                <>
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  <span className="text-xs">生成可见区... {Math.round(progress)}%</span>
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="mr-1 h-3 w-3" />
-                  <span className="text-xs">刷新当前预览</span>
-                </>
-              )}
-            </Button>
             {extraActions}
           </div>
         </div>
 
         {generating && (
-          <div className="mb-1 px-1">
-            <div className="w-full bg-secondary rounded-full h-1">
-              <div
-                className="bg-primary h-1 rounded-full transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+          <div className="mb-3 rounded-full bg-secondary/80 p-1">
+            <div
+              className="h-1 rounded-full bg-primary transition-all"
+              style={{ width: `${progress}%` }}
+            />
           </div>
         )}
 
@@ -310,7 +310,7 @@ export function BatchPreview({
         >
           <div className="relative" style={{ height: totalHeight }}>
             <div
-              className="absolute left-0 right-0 grid gap-[15px]"
+              className="absolute left-0 right-0 grid gap-4"
               style={{
                 top: topOffset,
                 gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
@@ -321,97 +321,103 @@ export function BatchPreview({
                 const absoluteIndex = startIndex + visibleIndex;
 
                 return (
-                  <div
+                  <button
                     key={item.id}
-                    className="relative group border-b border-r p-3 hover:bg-accent/50 transition-colors cursor-pointer"
+                    type="button"
+                    className={`group relative overflow-hidden rounded-2xl border text-left transition-all ${
+                      item.used
+                        ? 'border-emerald-200 bg-emerald-50/40 shadow-[0_0_0_1px_rgba(16,185,129,0.08)] dark:border-emerald-900/60 dark:bg-emerald-950/15'
+                        : 'border-border/70 bg-background hover:border-primary/35 hover:bg-accent/25 hover:shadow-sm'
+                    }`}
                     style={{ height: rowHeight }}
                     onClick={() => toggleUsed(item.id)}
                   >
-                    <div className="flex flex-col items-center justify-center h-full">
+                    <div className="absolute left-3 top-3 z-10 rounded-full border border-border/70 bg-background/90 px-2 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm">
+                      #{absoluteIndex + 1}
+                    </div>
+
+                    <div className="absolute right-3 top-3 z-20 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-7 w-7 rounded-full border border-border/70 bg-background/90 shadow-sm"
+                        onClick={(event) => handleCopy(item.content, item.id, event)}
+                        title="复制内容"
+                      >
+                        {copiedId === item.id ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="h-7 w-7 rounded-full shadow-sm"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleRemove(item.id);
+                        }}
+                        title="删除此项"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+
+                    <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-6">
                       <div className="relative flex items-center justify-center">
                         {previewUrl ? (
                           <img
                             src={previewUrl}
                             alt={`QR ${absoluteIndex + 1}`}
                             className="object-contain"
-                            style={{ width: qrSize - 10, height: qrSize - 10 }}
+                            style={{ width: qrSize - 8, height: qrSize - 8 }}
                           />
                         ) : (
                           <div
-                            className="flex flex-col items-center justify-center rounded bg-muted/60 text-muted-foreground"
-                            style={{ width: qrSize - 10, height: qrSize - 10 }}
+                            className="flex flex-col items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground"
+                            style={{ width: qrSize - 8, height: qrSize - 8 }}
                           >
-                            <Loader2 className="h-4 w-4 animate-spin mb-1" />
-                            <span className="text-[10px]">生成中</span>
+                            <Loader2 className="mb-2 h-4 w-4 animate-spin" />
+                            <span className="text-[10px]">生成预览中</span>
                           </div>
                         )}
 
                         {item.used && (
-                          <div className="absolute inset-0 pointer-events-none bg-black/50">
-                            <svg
-                              className="w-full h-full"
-                              viewBox="0 0 100 100"
-                              preserveAspectRatio="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <line x1="0" y1="0" x2="100" y2="100" stroke="#000000" strokeWidth="8" />
-                              <line x1="100" y1="0" x2="0" y2="100" stroke="#000000" strokeWidth="8" />
-                              <line x1="0" y1="25" x2="75" y2="100" stroke="#000000" strokeWidth="6" />
-                              <line x1="25" y1="0" x2="100" y2="75" stroke="#000000" strokeWidth="6" />
-                              <line x1="0" y1="75" x2="25" y2="100" stroke="#000000" strokeWidth="6" />
-                              <line x1="75" y1="0" x2="100" y2="25" stroke="#000000" strokeWidth="6" />
-                            </svg>
+                          <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/32">
+                            <div className="absolute inset-0">
+                              <svg
+                                className="h-full w-full"
+                                viewBox="0 0 100 100"
+                                preserveAspectRatio="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <line x1="10" y1="10" x2="90" y2="90" stroke="#0f172a" strokeWidth="5" />
+                                <line x1="90" y1="10" x2="10" y2="90" stroke="#0f172a" strokeWidth="5" />
+                              </svg>
+                            </div>
+                            <span className="relative rounded-full bg-background/95 px-3 py-1 text-[11px] font-semibold text-foreground shadow-sm">
+                              已标记
+                            </span>
                           </div>
                         )}
 
                         {copiedId === item.id && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-green-500/80 text-white text-xs font-medium">
+                          <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-emerald-500/80 text-xs font-medium text-white">
                             已复制
                           </div>
                         )}
                       </div>
 
-                      {item.label ? (
-                        <div className="mt-0.5 text-[10px] font-medium text-foreground text-center truncate max-w-full px-1">
-                          {item.label}
-                        </div>
-                      ) : (
-                        <span className="mt-0.5 text-[10px] text-muted-foreground truncate max-w-full px-1">
-                          {item.content}
-                        </span>
-                      )}
+                      <div className="max-w-full text-center">
+                        {item.label ? (
+                          <div className="truncate text-xs font-medium text-foreground">{item.label}</div>
+                        ) : (
+                          <div className="truncate text-xs text-muted-foreground">{item.content}</div>
+                        )}
+                      </div>
                     </div>
-
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 z-20"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleRemove(item.id);
-                      }}
-                    >
-                      <Trash2 className="h-2.5 w-2.5" />
-                    </Button>
-
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="absolute bottom-0.5 right-0.5 opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 z-20"
-                      onClick={(event) => handleCopy(item.content, item.id, event)}
-                      title="复制内容"
-                    >
-                      {copiedId === item.id ? (
-                        <Check className="h-2.5 w-2.5 text-green-600" />
-                      ) : (
-                        <Copy className="h-2.5 w-2.5" />
-                      )}
-                    </Button>
-
-                    <div className="absolute top-0.5 left-0.5 bg-muted/80 text-[9px] px-1 rounded text-muted-foreground z-10">
-                      {absoluteIndex + 1}
-                    </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>

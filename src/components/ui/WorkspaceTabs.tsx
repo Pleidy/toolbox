@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 import { Edit3, GripVertical, Plus, X } from 'lucide-react';
 import { Button } from './Button';
 import { Input } from './Input';
@@ -17,6 +17,7 @@ interface WorkspaceTabsProps {
   onDelete: (id: string) => void;
   onMove: (fromId: string, toId: string) => void;
   addLabel?: string;
+  extraActions?: ReactNode;
 }
 
 export function WorkspaceTabs({
@@ -28,6 +29,7 @@ export function WorkspaceTabs({
   onDelete,
   onMove,
   addLabel = '新建',
+  extraActions,
 }: WorkspaceTabsProps) {
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editingTabName, setEditingTabName] = useState('');
@@ -59,7 +61,7 @@ export function WorkspaceTabs({
   };
 
   return (
-    <div className="flex-shrink-0 p-2 border-t bg-muted/20">
+    <div className="flex-shrink-0 border-t border-border/70 bg-background/95 px-3 py-2 backdrop-blur">
       <div className="flex items-center gap-1.5 overflow-x-auto">
         {tabs.map((tab) => {
           const isActive = tab.id === activeTabId;
@@ -73,8 +75,10 @@ export function WorkspaceTabs({
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => handleDropTab(tab.id)}
               onDragEnd={() => setDraggingTabId(null)}
-              className={`rounded-t-md border border-b-0 min-w-[120px] max-w-[180px] ${
-                isActive ? 'bg-primary/12 border-primary/40 shadow-sm' : 'bg-muted/50'
+              className={`min-w-[108px] max-w-[168px] rounded-md border transition-all ${
+                isActive
+                  ? 'border-primary/45 bg-primary text-primary-foreground shadow-sm'
+                  : 'border-border/70 bg-muted/45 hover:bg-accent/70'
               } ${draggingTabId === tab.id ? 'opacity-60' : ''}`}
             >
               {isEditing ? (
@@ -98,12 +102,16 @@ export function WorkspaceTabs({
                 </div>
               ) : (
                 <div className="flex items-center gap-1 px-2 py-1.5">
-                  <GripVertical className="h-3 w-3 text-muted-foreground cursor-grab flex-shrink-0" />
+                  <GripVertical
+                    className={`h-3 w-3 cursor-grab flex-shrink-0 ${
+                      isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                    }`}
+                  />
                   <button
                     type="button"
                     onClick={() => onSelect(tab.id)}
                     className={`flex-1 truncate text-left text-[11px] font-medium ${
-                      isActive ? 'text-foreground' : 'text-muted-foreground'
+                      isActive ? 'text-primary-foreground' : 'text-foreground/80'
                     }`}
                   >
                     {tab.name}
@@ -111,7 +119,9 @@ export function WorkspaceTabs({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-5 w-5"
+                    className={`h-5 w-5 ${
+                      isActive ? 'hover:bg-primary-foreground/15 hover:text-primary-foreground' : ''
+                    }`}
                     onClick={() => handleStartRename(tab)}
                     title="重命名标签"
                   >
@@ -121,7 +131,9 @@ export function WorkspaceTabs({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-5 w-5"
+                      className={`h-5 w-5 ${
+                        isActive ? 'hover:bg-primary-foreground/15 hover:text-primary-foreground' : ''
+                      }`}
                       onClick={() => onDelete(tab.id)}
                       title="删除标签"
                     >
@@ -137,12 +149,13 @@ export function WorkspaceTabs({
         <Button
           variant="outline"
           size="sm"
-          className="h-7 px-2.5 text-[11px] flex-shrink-0"
+          className="h-7 flex-shrink-0 rounded-md border-dashed px-2.5 text-[11px]"
           onClick={onAdd}
         >
           <Plus className="mr-1 h-3 w-3" />
           {addLabel}
         </Button>
+        {extraActions}
       </div>
     </div>
   );
