@@ -9,6 +9,8 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void;
   autoUpdateEnabled: boolean;
   setAutoUpdateEnabled: (enabled: boolean) => void;
+  toolVisibility: Record<string, boolean>;
+  setToolVisibility: (toolId: string, enabled: boolean) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -20,12 +22,27 @@ export const useAppStore = create<AppState>()(
       setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
       autoUpdateEnabled: true,
       setAutoUpdateEnabled: (autoUpdateEnabled) => set({ autoUpdateEnabled }),
+      toolVisibility: {
+        qrcode: true,
+        encoder: true,
+        json: true,
+        image: true,
+        tools: false,
+      },
+      setToolVisibility: (toolId, enabled) =>
+        set((state) => ({
+          toolVisibility: {
+            ...state.toolVisibility,
+            [toolId]: enabled,
+          },
+        })),
     }),
     {
       name: 'toolbox-app-settings',
       partialize: (state) => ({
         theme: state.theme,
         autoUpdateEnabled: state.autoUpdateEnabled,
+        toolVisibility: state.toolVisibility,
       }),
     }
   )

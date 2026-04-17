@@ -9,6 +9,8 @@ import {
   GripVertical,
   Grid,
   LayoutGrid,
+  Maximize2,
+  Minimize2,
   Plus,
   RotateCcw,
   ScanLine,
@@ -264,6 +266,7 @@ function GenerateMode() {
   return (
     <div className="h-full flex flex-col gap-3">
       <div className="flex-1 min-h-0 flex gap-4">
+        {!previewSettings.largeScreen && (
         <div className="w-[500px] flex-shrink-0 flex flex-col gap-3 overflow-y-auto">
           <Card>
             <CardHeader className="pb-3">
@@ -346,6 +349,16 @@ function GenerateMode() {
                 <div className="space-y-2">
                   <div className="flex justify-between"><Label className="text-xs">行高</Label><span className="text-xs text-muted-foreground">{previewSettings.rowHeight}px</span></div>
                   <Slider value={[previewSettings.rowHeight]} min={100} max={1000} step={10} onValueChange={([value]) => setPreviewSettings({ rowHeight: value })} />
+                </div>
+                <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium">预览大屏展示</p>
+                    <p className="text-xs text-muted-foreground">开启后隐藏左侧控制区，让预览区域占据主要空间。</p>
+                  </div>
+                  <Switch
+                    checked={previewSettings.largeScreen}
+                    onCheckedChange={(enabled) => setPreviewSettings({ largeScreen: enabled })}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -470,12 +483,60 @@ function GenerateMode() {
             </Card>
           )}
         </div>
+        )}
 
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
           {currentMode === 'single' ? (
-            <QRCodePreview config={currentConfig} onDataUrlChange={setSinglePreviewDataUrl} />
+            <>
+              <div className="flex items-center justify-end mb-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() =>
+                    setPreviewSettings({ largeScreen: !previewSettings.largeScreen })
+                  }
+                  title={previewSettings.largeScreen ? '退出大屏展示' : '大屏展示'}
+                >
+                  {previewSettings.largeScreen ? (
+                    <Minimize2 className="h-4 w-4" />
+                  ) : (
+                    <Maximize2 className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <QRCodePreview config={currentConfig} onDataUrlChange={setSinglePreviewDataUrl} />
+            </>
           ) : (
-            <BatchPreview config={batchConfig.globalStyle} columns={previewSettings.columns} qrSize={previewSettings.size} rowHeight={previewSettings.rowHeight} />
+            <BatchPreview
+              config={batchConfig.globalStyle}
+              columns={previewSettings.columns}
+              qrSize={previewSettings.size}
+              rowHeight={previewSettings.rowHeight}
+              extraActions={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={() =>
+                    setPreviewSettings({ largeScreen: !previewSettings.largeScreen })
+                  }
+                  title={previewSettings.largeScreen ? '退出大屏展示' : '大屏展示'}
+                >
+                  {previewSettings.largeScreen ? (
+                    <>
+                      <Minimize2 className="mr-1 h-3 w-3" />
+                      <span className="text-xs">退出大屏</span>
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 className="mr-1 h-3 w-3" />
+                      <span className="text-xs">大屏展示</span>
+                    </>
+                  )}
+                </Button>
+              }
+            />
           )}
         </div>
       </div>

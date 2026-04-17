@@ -43,6 +43,7 @@ export interface PreviewSettings {
   columns: number;
   size: number;
   rowHeight: number;
+  largeScreen: boolean;
 }
 
 export interface QRCodeTab {

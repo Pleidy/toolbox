@@ -1,13 +1,16 @@
 import {
   lazy,
   Suspense,
+  useMemo,
   useState,
+  useEffect,
   Component,
   ErrorInfo,
   ReactNode,
 } from 'react';
 import { ThemeProvider } from 'next-themes';
 import { MainLayout } from '@/components/layout';
+import { useAppStore } from '@/stores';
 
 const QRCodeGenerator = lazy(async () => {
   const module = await import('@/components/qrcode');
@@ -117,7 +120,26 @@ function ToolContent({ activeTool }: { activeTool: string }) {
 }
 
 function App() {
+  const { toolVisibility } = useAppStore();
   const [activeTool, setActiveTool] = useState('qrcode');
+
+  const enabledTools = useMemo(
+    () =>
+      Object.entries(toolVisibility)
+        .filter(([, enabled]) => enabled)
+        .map(([toolId]) => toolId),
+    [toolVisibility]
+  );
+
+  useEffect(() => {
+    if (enabledTools.length === 0) {
+      return;
+    }
+
+    if (!enabledTools.includes(activeTool)) {
+      setActiveTool(enabledTools[0]);
+    }
+  }, [activeTool, enabledTools]);
 
   return (
     <ErrorBoundary>

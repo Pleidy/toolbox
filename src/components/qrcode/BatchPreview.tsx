@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { QRCodeConfig } from '@/types';
@@ -11,6 +11,7 @@ interface BatchPreviewProps {
   columns?: number;
   qrSize?: number;
   rowHeight?: number;
+  extraActions?: ReactNode;
 }
 
 const GRID_GAP = 15;
@@ -21,6 +22,7 @@ export function BatchPreview({
   columns = 4,
   qrSize = 150,
   rowHeight = 180,
+  extraActions,
 }: BatchPreviewProps) {
   const batchConfig = useQRCodeStore((state) => state.batchConfig);
   const removeBatchItem = useQRCodeStore((state) => state.removeBatchItem);
@@ -286,6 +288,7 @@ export function BatchPreview({
                 </>
               )}
             </Button>
+            {extraActions}
           </div>
         </div>
 

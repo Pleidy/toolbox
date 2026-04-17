@@ -42,6 +42,7 @@ const createDefaultPreviewSettings = (): PreviewSettings => ({
   columns: 2,
   size: 240,
   rowHeight: 500,
+  largeScreen: false,
 });
 
 function createDefaultTab(name = DEFAULT_TAB_NAME): QRCodeTab {

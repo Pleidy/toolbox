@@ -20,7 +20,15 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
-  const { sidebarOpen, theme, setSidebarOpen } = useAppStore();
+  const {
+    sidebarOpen,
+    theme,
+    setSidebarOpen,
+    autoUpdateEnabled,
+    setAutoUpdateEnabled,
+    toolVisibility,
+    setToolVisibility,
+  } = useAppStore();
   const { setTheme: setNextTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -45,27 +53,28 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
     { id: 'tools', name: '更多工具', icon: LayoutGrid },
   ];
 
+  const visibleTools = tools.filter((tool) => toolVisibility[tool.id] !== false);
+
   // 过滤工具
   const filteredTools = useMemo(() => {
-    if (!searchQuery.trim()) return tools;
-    return tools.filter(tool => 
+    if (!searchQuery.trim()) return visibleTools;
+    return visibleTools.filter(tool => 
       tool.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [searchQuery, tools]);
+  }, [searchQuery, visibleTools]);
 
   // 获取显示的工具列表
   const displayTools = searchQuery.trim()
-    ? tools.map(tool => ({
+    ? visibleTools.map(tool => ({
         ...tool,
         isHidden: !filteredTools.some(t => t.id === tool.id)
       }))
-    : tools.map(tool => ({ ...tool, isHidden: false }));
+    : visibleTools.map(tool => ({ ...tool, isHidden: false }));
 
   const clearSearch = () => setSearchQuery('');
   const isCheckingUpdate =
     updateStatus.phase === 'checking' || updateStatus.phase === 'downloading';
   const isCollapsed = !sidebarOpen;
-  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
 
   useEffect(() => {
     if (!window.electronAPI?.updater) {
@@ -244,6 +253,37 @@ export function Sidebar({ activeTool, onToolChange }: SidebarProps) {
                   />
                   <Moon className="h-4 w-4" />
                 </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 space-y-3">
+              <div>
+                <p className="text-sm font-medium">工具显示</p>
+                <p className="text-xs text-muted-foreground">
+                  可控制左侧菜单中哪些工具显示。
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {tools.map((tool) => (
+                  <div
+                    key={tool.id}
+                    className="flex items-center justify-between rounded-md border border-border/60 bg-background px-3 py-2"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{tool.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {toolVisibility[tool.id] !== false ? '已显示在菜单中' : '当前不显示'}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={toolVisibility[tool.id] !== false}
+                      onCheckedChange={(enabled) =>
+                        setToolVisibility(tool.id, enabled)
+                      }
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
