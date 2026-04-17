@@ -46,6 +46,28 @@ export interface PreviewSettings {
   largeScreen: boolean;
 }
 
+export type BatchImportPreviewMode = 'standard' | 'structured';
+
+export interface StructuredPreviewSource {
+  rows: string[][];
+  selectedColumnIndexes: number[];
+}
+
+export interface StructuredPreviewCell {
+  key: string;
+  sequence: number | null;
+  content: string;
+  label?: string;
+  itemId: string | null;
+  used: boolean;
+  empty: boolean;
+}
+
+export interface StructuredPreviewLayout {
+  columnCount: number;
+  rows: StructuredPreviewCell[][];
+}
+
 export interface QRCodeTab {
   id: string;
   name: string;
@@ -57,6 +79,7 @@ export interface QRCodeTab {
   manualMode: 'single' | 'batch';
   exportSettings: ExportSettings;
   previewSettings: PreviewSettings;
+  structuredPreviewSource: StructuredPreviewSource | null;
 }
 
 export type Theme = 'light' | 'dark' | 'system';

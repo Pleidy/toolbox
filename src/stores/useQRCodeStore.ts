@@ -7,6 +7,7 @@ import {
   PreviewSettings,
   QRCodeConfig,
   QRCodeTab,
+  StructuredPreviewSource,
 } from '../types';
 import { generateId } from '../lib/utils';
 
@@ -62,6 +63,7 @@ function createDefaultTab(name = DEFAULT_TAB_NAME): QRCodeTab {
     manualMode: 'single',
     exportSettings: createDefaultExportSettings(),
     previewSettings: createDefaultPreviewSettings(),
+    structuredPreviewSource: null,
   };
 }
 
@@ -77,6 +79,12 @@ function cloneTab(tab: QRCodeTab): QRCodeTab {
     usedContents: [...tab.usedContents],
     exportSettings: { ...tab.exportSettings },
     previewSettings: { ...tab.previewSettings },
+    structuredPreviewSource: tab.structuredPreviewSource
+      ? {
+          rows: tab.structuredPreviewSource.rows.map((row) => [...row]),
+          selectedColumnIndexes: [...tab.structuredPreviewSource.selectedColumnIndexes],
+        }
+      : null,
   };
 }
 
@@ -99,6 +107,12 @@ function buildTabSnapshot(state: QRCodeState, tab: QRCodeTab): QRCodeTab {
     manualMode: state.manualMode,
     exportSettings: { ...state.exportSettings },
     previewSettings: { ...state.previewSettings },
+    structuredPreviewSource: state.structuredPreviewSource
+      ? {
+          rows: state.structuredPreviewSource.rows.map((row) => [...row]),
+          selectedColumnIndexes: [...state.structuredPreviewSource.selectedColumnIndexes],
+        }
+      : null,
   };
 }
 
@@ -116,6 +130,12 @@ function buildTopLevelStateFromTab(tab: QRCodeTab) {
     manualMode: tab.manualMode,
     exportSettings: { ...tab.exportSettings },
     previewSettings: { ...tab.previewSettings },
+    structuredPreviewSource: tab.structuredPreviewSource
+      ? {
+          rows: tab.structuredPreviewSource.rows.map((row) => [...row]),
+          selectedColumnIndexes: [...tab.structuredPreviewSource.selectedColumnIndexes],
+        }
+      : null,
   };
 }
 
@@ -163,6 +183,18 @@ function syncActiveTab<T extends Partial<QRCodeState>>(
                   ...state.previewSettings,
                   ...updates.previewSettings,
                 },
+              }
+            : {}),
+          ...(updates.structuredPreviewSource !== undefined
+            ? {
+                structuredPreviewSource: updates.structuredPreviewSource
+                  ? {
+                      rows: updates.structuredPreviewSource.rows.map((row) => [...row]),
+                      selectedColumnIndexes: [
+                        ...updates.structuredPreviewSource.selectedColumnIndexes,
+                      ],
+                    }
+                  : null,
               }
             : {}),
         }
@@ -220,6 +252,10 @@ interface QRCodeState {
   setManualMode: (mode: 'single' | 'batch') => void;
   setExportSettings: (settings: Partial<ExportSettings>) => void;
   setPreviewSettings: (settings: Partial<PreviewSettings>) => void;
+  structuredPreviewSource: StructuredPreviewSource | null;
+  setStructuredPreviewSource: (
+    source: StructuredPreviewSource | null
+  ) => void;
 }
 
 const defaultTab = createDefaultTab();
@@ -448,6 +484,7 @@ export const useQRCodeStore = create<QRCodeState>()(
       manualMode: defaultTab.manualMode,
       exportSettings: { ...defaultTab.exportSettings },
       previewSettings: { ...defaultTab.previewSettings },
+      structuredPreviewSource: null,
 
       setInputText: (inputText) =>
         set((state) => syncActiveTab(state, { inputText })),
@@ -467,6 +504,8 @@ export const useQRCodeStore = create<QRCodeState>()(
             previewSettings: { ...state.previewSettings, ...previewSettings },
           })
         ),
+      setStructuredPreviewSource: (structuredPreviewSource) =>
+        set((state) => syncActiveTab(state, { structuredPreviewSource })),
     }),
     {
       name: 'toolbox-config',
@@ -504,6 +543,14 @@ export const useQRCodeStore = create<QRCodeState>()(
                   ...createDefaultPreviewSettings(),
                   ...(tab.previewSettings || {}),
                 },
+                structuredPreviewSource: tab.structuredPreviewSource
+                  ? {
+                      rows: tab.structuredPreviewSource.rows.map((row) => [...row]),
+                      selectedColumnIndexes: [
+                        ...(tab.structuredPreviewSource.selectedColumnIndexes || []),
+                      ],
+                    }
+                  : null,
               }))
             : [createDefaultTab()];
 

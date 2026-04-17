@@ -28,13 +28,19 @@ import { Input } from '../ui/Input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/Dialog';
 import { Tabs, TabsList, TabsTrigger } from '../ui/Tabs';
 import { useQRCodeStore } from '@/stores';
-import { BatchConfig, BatchItem, ExportSettings, QRCodeConfig } from '@/types';
+import {
+  BatchConfig,
+  BatchItem,
+  ExportSettings,
+  QRCodeConfig,
+  StructuredPreviewLayout,
+} from '@/types';
 import { generateId } from '@/lib/utils';
 import { QRCodePreview } from './QRCodePreview';
 import { BatchPreview } from './BatchPreview';
 import { QRCodeDecoder } from './QRCodeDecoder';
 import { ExportPanel } from './ExportPanel';
-import { BatchImportDialog } from './BatchImportDialog';
+import { BatchImportDialog, BatchImportResult } from './BatchImportDialog';
 
 const PREVIEW_COLUMN_PRESETS = [2, 3, 4];
 const PREVIEW_SIZE_PRESETS = [180, 240, 320];
@@ -126,6 +132,8 @@ function GenerateMode() {
     setExportSettings,
     previewSettings,
     setPreviewSettings,
+    structuredPreviewSource,
+    setStructuredPreviewSource,
     generating,
     progress,
     progressLabel,
@@ -156,6 +164,59 @@ function GenerateMode() {
   );
   const currentMode = autoMode ? detectedMode : manualMode;
   const currentConfig = currentMode === 'single' ? singleConfig : batchConfig.globalStyle;
+  const structuredPreviewLayout = useMemo<StructuredPreviewLayout | null>(() => {
+    if (currentMode !== 'batch' || !structuredPreviewSource) {
+      return null;
+    }
+
+    const itemBuckets = new Map<string, typeof batchConfig.data>();
+    for (const item of batchConfig.data) {
+      const bucket = itemBuckets.get(item.content) || [];
+      bucket.push(item);
+      itemBuckets.set(item.content, bucket);
+    }
+
+    const contentUsage = new Map<string, number>();
+    let sequence = 0;
+
+    const rows = structuredPreviewSource.rows
+      .map((row, rowIndex) =>
+        structuredPreviewSource.selectedColumnIndexes.map((columnIndex, columnPosition) => {
+          const content = row[columnIndex]?.trim() || '';
+          if (!content) {
+            return {
+              key: `${rowIndex}-${columnPosition}`,
+              sequence: null,
+              content: '',
+              itemId: null,
+              used: false,
+              empty: true,
+            };
+          }
+
+          sequence += 1;
+          const usedIndex = contentUsage.get(content) || 0;
+          const matchedItem = itemBuckets.get(content)?.[usedIndex] || null;
+          contentUsage.set(content, usedIndex + 1);
+
+          return {
+            key: `${rowIndex}-${columnPosition}`,
+            sequence,
+            content,
+            label: matchedItem?.label,
+            itemId: matchedItem?.id || null,
+            used: matchedItem?.used ?? false,
+            empty: false,
+          };
+        })
+      )
+      .filter((row) => row.some((cell) => !cell.empty));
+
+    return {
+      columnCount: structuredPreviewSource.selectedColumnIndexes.length,
+      rows,
+    };
+  }, [batchConfig.data, currentMode, structuredPreviewSource]);
 
   useEffect(() => {
     const batchItems = buildBatchItems(parsedLines);
@@ -254,11 +315,13 @@ function GenerateMode() {
   const restoreDefault = () => {
     setInputText('https://example.com');
     clearBatchItems();
+    setStructuredPreviewSource(null);
   };
 
   const clearInput = () => {
     setInputText('');
     clearBatchItems();
+    setStructuredPreviewSource(null);
   };
 
   const handleCancelExport = () => {
@@ -314,7 +377,12 @@ function GenerateMode() {
 https://example.com 订单A
 https://example.com/order/2 订单B`}
                 value={inputText}
-                onChange={(event) => setInputText(event.target.value)}
+                onChange={(event) => {
+                  setInputText(event.target.value);
+                  if (structuredPreviewSource) {
+                    setStructuredPreviewSource(null);
+                  }
+                }}
               />
 
               <div className="rounded-xl border border-dashed border-border/70 bg-muted/[0.12] px-3 py-2">
@@ -411,6 +479,7 @@ https://example.com/order/2 订单B`}
               columns={previewSettings.columns}
               qrSize={previewSettings.size}
               rowHeight={previewSettings.rowHeight}
+              structuredLayout={structuredPreviewLayout}
               extraActions={
                 <Button
                   variant="outline"
@@ -614,7 +683,14 @@ https://example.com/order/2 订单B`}
       </Dialog>
 
       <ExportPanel dataUrl={singlePreviewDataUrl} config={currentConfig} mode={currentMode} />
-  <BatchImportDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onImport={(contents) => setInputText(contents.join('\n'))} />
+      <BatchImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onImport={({ contents, structuredPreviewSource }: BatchImportResult) => {
+          setInputText(contents.join('\n'));
+          setStructuredPreviewSource(structuredPreviewSource);
+        }}
+      />
     </div>
   );
 }

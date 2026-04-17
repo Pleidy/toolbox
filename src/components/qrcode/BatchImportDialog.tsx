@@ -5,6 +5,10 @@ import {
   parseBatchImportFile,
   ParsedBatchImportData,
 } from '@/lib/fileOperations';
+import {
+  BatchImportPreviewMode,
+  StructuredPreviewSource,
+} from '@/types';
 import { Button } from '../ui/Button';
 import {
   Dialog,
@@ -25,10 +29,15 @@ import {
 
 type ImportOrder = 'row-major' | 'column-major';
 
+export interface BatchImportResult {
+  contents: string[];
+  structuredPreviewSource: StructuredPreviewSource | null;
+}
+
 interface BatchImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImport: (contents: string[]) => void;
+  onImport: (result: BatchImportResult) => void;
 }
 
 export function BatchImportDialog({
@@ -41,6 +50,7 @@ export function BatchImportDialog({
   const [parsedData, setParsedData] = useState<ParsedBatchImportData | null>(null);
   const [selectedColumns, setSelectedColumns] = useState<number[]>([]);
   const [importOrder, setImportOrder] = useState<ImportOrder>('row-major');
+  const [previewMode, setPreviewMode] = useState<BatchImportPreviewMode>('standard');
 
   const resetState = useCallback(() => {
     setLoading(false);
@@ -48,6 +58,7 @@ export function BatchImportDialog({
     setParsedData(null);
     setSelectedColumns([]);
     setImportOrder('row-major');
+    setPreviewMode('standard');
   }, []);
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -56,6 +67,11 @@ export function BatchImportDialog({
       resetState();
     }
   };
+
+  const structuredColumnIndexes = useMemo(
+    () => [...selectedColumns].sort((left, right) => left - right),
+    [selectedColumns]
+  );
 
   const importedContents = useMemo(() => {
     if (!parsedData) {
@@ -66,12 +82,26 @@ export function BatchImportDialog({
       return parsedData.textLines;
     }
 
+    if (previewMode === 'structured') {
+      return buildBatchContentsFromColumns(
+        parsedData.rows,
+        structuredColumnIndexes,
+        'row-major'
+      );
+    }
+
     return buildBatchContentsFromColumns(
       parsedData.rows,
       selectedColumns,
       importOrder
     );
-  }, [parsedData, selectedColumns, importOrder]);
+  }, [
+    importOrder,
+    parsedData,
+    previewMode,
+    selectedColumns,
+    structuredColumnIndexes,
+  ]);
 
   const previewLines = importedContents.slice(0, 12);
 
@@ -117,7 +147,18 @@ export function BatchImportDialog({
       return;
     }
 
-    onImport(importedContents);
+    const structuredPreviewSource =
+      parsedData?.fileType === 'spreadsheet' && previewMode === 'structured'
+        ? {
+            rows: parsedData.rows.map((row) => [...row]),
+            selectedColumnIndexes: structuredColumnIndexes,
+          }
+        : null;
+
+    onImport({
+      contents: importedContents,
+      structuredPreviewSource,
+    });
     handleOpenChange(false);
   };
 
@@ -138,7 +179,7 @@ export function BatchImportDialog({
               className="cursor-pointer"
             />
             <p className="text-xs text-muted-foreground">
-              支持 Excel、CSV、TXT。Excel/CSV 将读取首行作为表头，并自动尝试修复 CSV 编码。
+              支持 Excel、CSV、TXT。Excel/CSV 会读取首行作为表头，并自动尝试修正 CSV 编码。
             </p>
           </div>
 
@@ -200,7 +241,7 @@ export function BatchImportDialog({
                         </Button>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto rounded-md border p-2">
+                    <div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto rounded-md border p-2">
                       {parsedData.columns.map((column) => {
                         const selected = selectedColumns.includes(column.index);
 
@@ -226,33 +267,56 @@ export function BatchImportDialog({
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs">多列展开顺序</Label>
+                    <Label className="text-xs">导入解析方式</Label>
                     <Select
-                      value={importOrder}
-                      onValueChange={(value: ImportOrder) => setImportOrder(value)}
+                      value={previewMode}
+                      onValueChange={(value: BatchImportPreviewMode) =>
+                        setPreviewMode(value)
+                      }
                     >
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="row-major">先横向生成</SelectItem>
-                        <SelectItem value="column-major">先纵向生成</SelectItem>
+                        <SelectItem value="standard">常规解析方式</SelectItem>
+                        <SelectItem value="structured">结构一致展示方式</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      先横向生成：按每一行依次读取所选列。先纵向生成：按列依次读取完整数据。
+                      常规解析会把选中列展开为普通二维码列表。结构一致展示会在预览区保留原文件列结构和空位。
                     </p>
                   </div>
+
+                  {previewMode === 'standard' && (
+                    <div className="space-y-2">
+                      <Label className="text-xs">多列展开顺序</Label>
+                      <Select
+                        value={importOrder}
+                        onValueChange={(value: ImportOrder) => setImportOrder(value)}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="row-major">先横向生成</SelectItem>
+                          <SelectItem value="column-major">先纵向生成</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        先横向生成：按每一行依次读取所选列。先纵向生成：按列依次读取完整数据。
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
 
               <div className="space-y-2">
                 <Label className="text-xs">导入结果预览</Label>
                 <div className="rounded-md border p-3">
-                  <div className="text-xs text-muted-foreground mb-2">
+                  <div className="mb-2 text-xs text-muted-foreground">
                     共将导入 {importedContents.length} 条内容
                   </div>
-                  <div className="max-h-48 overflow-y-auto space-y-1 text-xs font-mono">
+                  <div className="max-h-48 space-y-1 overflow-y-auto text-xs font-mono">
                     {previewLines.length > 0 ? (
                       previewLines.map((line, index) => (
                         <div key={`${line}-${index}`} className="truncate">

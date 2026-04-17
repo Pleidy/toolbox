@@ -1,7 +1,7 @@
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { QRCodeConfig } from '@/types';
+import { QRCodeConfig, StructuredPreviewLayout } from '@/types';
 import { generateQRCode, configToOptions } from '@/lib/qrcode';
 import { Loader2, Trash2, RefreshCw, XCircle, Copy, Check } from 'lucide-react';
 import { useQRCodeStore } from '@/stores';
@@ -12,6 +12,7 @@ interface BatchPreviewProps {
   qrSize?: number;
   rowHeight?: number;
   extraActions?: ReactNode;
+  structuredLayout?: StructuredPreviewLayout | null;
 }
 
 const GRID_GAP = 16;
@@ -23,6 +24,7 @@ export function BatchPreview({
   qrSize = 150,
   rowHeight = 180,
   extraActions,
+  structuredLayout,
 }: BatchPreviewProps) {
   const batchConfig = useQRCodeStore((state) => state.batchConfig);
   const removeBatchItem = useQRCodeStore((state) => state.removeBatchItem);
@@ -72,19 +74,26 @@ export function BatchPreview({
     [batchData]
   );
 
+  const layoutColumns = structuredLayout?.columnCount || columns;
   const rowStride = rowHeight + GRID_GAP;
-  const rowCount = Math.ceil(batchData.length / columns);
+  const rowCount = structuredLayout
+    ? structuredLayout.rows.length
+    : Math.ceil(batchData.length / columns);
   const startRow = Math.max(0, Math.floor(scrollTop / rowStride) - OVERSCAN_ROWS);
   const visibleRowCount = Math.max(
     1,
     Math.ceil(Math.max(viewportHeight, rowStride) / rowStride) + OVERSCAN_ROWS * 2
   );
   const endRow = Math.min(rowCount, startRow + visibleRowCount);
-  const startIndex = startRow * columns;
-  const endIndex = Math.min(batchData.length, endRow * columns);
+  const startIndex = startRow * layoutColumns;
+  const endIndex = Math.min(batchData.length, endRow * layoutColumns);
   const visibleItems = useMemo(
     () => batchData.slice(startIndex, endIndex),
     [batchData, startIndex, endIndex]
+  );
+  const visibleStructuredRows = useMemo(
+    () => (structuredLayout ? structuredLayout.rows.slice(startRow, endRow) : []),
+    [endRow, startRow, structuredLayout]
   );
   const topOffset = startRow * rowStride;
   const totalHeight = rowCount === 0 ? 0 : rowCount * rowStride - GRID_GAP;
@@ -136,7 +145,17 @@ export function BatchPreview({
       return;
     }
 
-    const missingItems = visibleItems.filter((item) => !previewCacheRef.current.has(item.id));
+    const missingItems = structuredLayout
+      ? visibleStructuredRows
+          .flatMap((row) => row)
+          .filter((cell) => cell.itemId && !cell.empty)
+          .map((cell) => {
+            const item = batchData.find((entry) => entry.id === cell.itemId);
+            return item || null;
+          })
+          .filter((item): item is NonNullable<typeof item> => !!item)
+          .filter((item) => !previewCacheRef.current.has(item.id))
+      : visibleItems.filter((item) => !previewCacheRef.current.has(item.id));
 
     if (missingItems.length === 0) {
       setGenerating(false);
@@ -187,7 +206,7 @@ export function BatchPreview({
     return () => {
       cancelled = true;
     };
-  }, [batchData.length, visibleItems, configSignature, refreshToken]);
+  }, [batchData, batchData.length, configSignature, refreshToken, structuredLayout, visibleItems, visibleStructuredRows]);
 
   const handleCopy = useCallback(async (content: string, id: string, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -246,6 +265,11 @@ export function BatchPreview({
               <span className="rounded-full border border-border/70 bg-muted/55 px-2 py-0.5 text-[11px] text-muted-foreground">
                 按可见区域即时生成
               </span>
+              {structuredLayout && (
+                <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300">
+                  保持原文件结构
+                </span>
+              )}
               {usedCount > 0 && (
                 <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
                   已标记 {usedCount} 项
@@ -253,7 +277,9 @@ export function BatchPreview({
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              点击卡片可快速标记，悬停后可复制内容或删除单项。大批量数据只会渲染当前可见内容，避免预览区阻塞。
+              {structuredLayout
+                ? '结构模式会按导入文件保留列结构和空位，点击卡片可快速标记，删除后对应位置会保留为空。'
+                : '点击卡片可快速标记，悬停后可复制内容或删除单项。大批量数据只会渲染当前可见内容，避免预览区阻塞。'}
             </p>
           </div>
 
@@ -313,113 +339,240 @@ export function BatchPreview({
               className="absolute left-0 right-0 grid gap-4"
               style={{
                 top: topOffset,
-                gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${layoutColumns}, minmax(0, 1fr))`,
               }}
             >
-              {visibleItems.map((item, visibleIndex) => {
-                const previewUrl = previewCacheRef.current.get(item.id);
-                const absoluteIndex = startIndex + visibleIndex;
+              {structuredLayout
+                ? visibleStructuredRows.map((row) =>
+                    row.map((cell) => {
+                      const previewUrl = cell.itemId
+                        ? previewCacheRef.current.get(cell.itemId)
+                        : undefined;
+                      const isRemoved = !cell.empty && !cell.itemId;
 
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`group relative overflow-hidden rounded-2xl border text-left transition-all ${
-                      item.used
-                        ? 'border-emerald-200 bg-emerald-50/40 shadow-[0_0_0_1px_rgba(16,185,129,0.08)] dark:border-emerald-900/60 dark:bg-emerald-950/15'
-                        : 'border-border/70 bg-background hover:border-primary/35 hover:bg-accent/25 hover:shadow-sm'
-                    }`}
-                    style={{ height: rowHeight }}
-                    onClick={() => toggleUsed(item.id)}
-                  >
-                    <div className="absolute left-3 top-3 z-10 rounded-full border border-border/70 bg-background/90 px-2 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm">
-                      #{absoluteIndex + 1}
-                    </div>
-
-                    <div className="absolute right-3 top-3 z-20 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="h-7 w-7 rounded-full border border-border/70 bg-background/90 shadow-sm"
-                        onClick={(event) => handleCopy(item.content, item.id, event)}
-                        title="复制内容"
-                      >
-                        {copiedId === item.id ? (
-                          <Check className="h-3.5 w-3.5 text-emerald-600" />
-                        ) : (
-                          <Copy className="h-3.5 w-3.5" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="h-7 w-7 rounded-full shadow-sm"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleRemove(item.id);
-                        }}
-                        title="删除此项"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-
-                    <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-6">
-                      <div className="relative flex items-center justify-center">
-                        {previewUrl ? (
-                          <img
-                            src={previewUrl}
-                            alt={`QR ${absoluteIndex + 1}`}
-                            className="object-contain"
-                            style={{ width: qrSize - 8, height: qrSize - 8 }}
-                          />
-                        ) : (
-                          <div
-                            className="flex flex-col items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground"
-                            style={{ width: qrSize - 8, height: qrSize - 8 }}
-                          >
-                            <Loader2 className="mb-2 h-4 w-4 animate-spin" />
-                            <span className="text-[10px]">生成预览中</span>
-                          </div>
-                        )}
-
-                        {item.used && (
-                          <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/32">
-                            <div className="absolute inset-0">
-                              <svg
-                                className="h-full w-full"
-                                viewBox="0 0 100 100"
-                                preserveAspectRatio="none"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <line x1="10" y1="10" x2="90" y2="90" stroke="#0f172a" strokeWidth="5" />
-                                <line x1="90" y1="10" x2="10" y2="90" stroke="#0f172a" strokeWidth="5" />
-                              </svg>
+                      return (
+                        <button
+                          key={cell.key}
+                          type="button"
+                          className={`group relative overflow-hidden rounded-2xl border text-left transition-all ${
+                            cell.empty || isRemoved
+                              ? 'border-dashed border-border/70 bg-muted/[0.12]'
+                              : cell.used
+                                ? 'border-emerald-200 bg-emerald-50/40 shadow-[0_0_0_1px_rgba(16,185,129,0.08)] dark:border-emerald-900/60 dark:bg-emerald-950/15'
+                                : 'border-border/70 bg-background hover:border-primary/35 hover:bg-accent/25 hover:shadow-sm'
+                          }`}
+                          style={{ height: rowHeight }}
+                          onClick={() => {
+                            if (cell.itemId) {
+                              toggleUsed(cell.itemId);
+                            }
+                          }}
+                        >
+                          {cell.sequence !== null && (
+                            <div className="absolute left-3 top-3 z-10 rounded-full border border-border/70 bg-background/90 px-2 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm">
+                              #{cell.sequence}
                             </div>
-                            <span className="relative rounded-full bg-background/95 px-3 py-1 text-[11px] font-semibold text-foreground shadow-sm">
-                              已标记
-                            </span>
-                          </div>
-                        )}
+                          )}
 
-                        {copiedId === item.id && (
-                          <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-emerald-500/80 text-xs font-medium text-white">
-                            已复制
-                          </div>
-                        )}
-                      </div>
+                          {cell.itemId && (
+                            <div className="absolute right-3 top-3 z-20 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                              <Button
+                                variant="secondary"
+                                size="icon"
+                                className="h-7 w-7 rounded-full border border-border/70 bg-background/90 shadow-sm"
+                                onClick={(event) => handleCopy(cell.content, cell.itemId!, event)}
+                                title="复制内容"
+                              >
+                                {copiedId === cell.itemId ? (
+                                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                ) : (
+                                  <Copy className="h-3.5 w-3.5" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                className="h-7 w-7 rounded-full shadow-sm"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleRemove(cell.itemId!);
+                                }}
+                                title="删除此项"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          )}
 
-                      <div className="max-w-full text-center">
-                        {item.label ? (
-                          <div className="truncate text-xs font-medium text-foreground">{item.label}</div>
-                        ) : (
-                          <div className="truncate text-xs text-muted-foreground">{item.content}</div>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+                          <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-6">
+                            {cell.empty || isRemoved ? (
+                              <div className="flex h-full w-full flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-background/40 text-center text-xs text-muted-foreground">
+                                {isRemoved ? '已移除' : '空白位置'}
+                              </div>
+                            ) : (
+                              <>
+                                <div className="relative flex items-center justify-center">
+                                  {previewUrl ? (
+                                    <img
+                                      src={previewUrl}
+                                      alt={`QR ${cell.sequence ?? ''}`}
+                                      className="object-contain"
+                                      style={{ width: qrSize - 8, height: qrSize - 8 }}
+                                    />
+                                  ) : (
+                                    <div
+                                      className="flex flex-col items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground"
+                                      style={{ width: qrSize - 8, height: qrSize - 8 }}
+                                    >
+                                      <Loader2 className="mb-2 h-4 w-4 animate-spin" />
+                                      <span className="text-[10px]">生成预览中</span>
+                                    </div>
+                                  )}
+
+                                  {cell.used && (
+                                    <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/32">
+                                      <div className="absolute inset-0">
+                                        <svg
+                                          className="h-full w-full"
+                                          viewBox="0 0 100 100"
+                                          preserveAspectRatio="none"
+                                          xmlns="http://www.w3.org/2000/svg"
+                                        >
+                                          <line x1="10" y1="10" x2="90" y2="90" stroke="#0f172a" strokeWidth="5" />
+                                          <line x1="90" y1="10" x2="10" y2="90" stroke="#0f172a" strokeWidth="5" />
+                                        </svg>
+                                      </div>
+                                      <span className="relative rounded-full bg-background/95 px-3 py-1 text-[11px] font-semibold text-foreground shadow-sm">
+                                        已标记
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {copiedId === cell.itemId && (
+                                    <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-emerald-500/80 text-xs font-medium text-white">
+                                      已复制
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="max-w-full text-center">
+                                  {cell.label ? (
+                                    <div className="truncate text-xs font-medium text-foreground">{cell.label}</div>
+                                  ) : (
+                                    <div className="truncate text-xs text-muted-foreground">{cell.content}</div>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )
+                : visibleItems.map((item, visibleIndex) => {
+                    const previewUrl = previewCacheRef.current.get(item.id);
+                    const absoluteIndex = startIndex + visibleIndex;
+
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`group relative overflow-hidden rounded-2xl border text-left transition-all ${
+                          item.used
+                            ? 'border-emerald-200 bg-emerald-50/40 shadow-[0_0_0_1px_rgba(16,185,129,0.08)] dark:border-emerald-900/60 dark:bg-emerald-950/15'
+                            : 'border-border/70 bg-background hover:border-primary/35 hover:bg-accent/25 hover:shadow-sm'
+                        }`}
+                        style={{ height: rowHeight }}
+                        onClick={() => toggleUsed(item.id)}
+                      >
+                        <div className="absolute left-3 top-3 z-10 rounded-full border border-border/70 bg-background/90 px-2 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm">
+                          #{absoluteIndex + 1}
+                        </div>
+
+                        <div className="absolute right-3 top-3 z-20 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className="h-7 w-7 rounded-full border border-border/70 bg-background/90 shadow-sm"
+                            onClick={(event) => handleCopy(item.content, item.id, event)}
+                            title="复制内容"
+                          >
+                            {copiedId === item.id ? (
+                              <Check className="h-3.5 w-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            className="h-7 w-7 rounded-full shadow-sm"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleRemove(item.id);
+                            }}
+                            title="删除此项"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+
+                        <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-6">
+                          <div className="relative flex items-center justify-center">
+                            {previewUrl ? (
+                              <img
+                                src={previewUrl}
+                                alt={`QR ${absoluteIndex + 1}`}
+                                className="object-contain"
+                                style={{ width: qrSize - 8, height: qrSize - 8 }}
+                              />
+                            ) : (
+                              <div
+                                className="flex flex-col items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground"
+                                style={{ width: qrSize - 8, height: qrSize - 8 }}
+                              >
+                                <Loader2 className="mb-2 h-4 w-4 animate-spin" />
+                                <span className="text-[10px]">生成预览中</span>
+                              </div>
+                            )}
+
+                            {item.used && (
+                              <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/32">
+                                <div className="absolute inset-0">
+                                  <svg
+                                    className="h-full w-full"
+                                    viewBox="0 0 100 100"
+                                    preserveAspectRatio="none"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <line x1="10" y1="10" x2="90" y2="90" stroke="#0f172a" strokeWidth="5" />
+                                    <line x1="90" y1="10" x2="10" y2="90" stroke="#0f172a" strokeWidth="5" />
+                                  </svg>
+                                </div>
+                                <span className="relative rounded-full bg-background/95 px-3 py-1 text-[11px] font-semibold text-foreground shadow-sm">
+                                  已标记
+                                </span>
+                              </div>
+                            )}
+
+                            {copiedId === item.id && (
+                              <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-emerald-500/80 text-xs font-medium text-white">
+                                已复制
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="max-w-full text-center">
+                            {item.label ? (
+                              <div className="truncate text-xs font-medium text-foreground">{item.label}</div>
+                            ) : (
+                              <div className="truncate text-xs text-muted-foreground">{item.content}</div>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
             </div>
           </div>
         </div>
