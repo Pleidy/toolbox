@@ -2,20 +2,41 @@
 
 # Toolbox
 
-一款基于 **Electron + React + TypeScript + Vite** 构建的开源桌面工具项目，当前主要聚焦在：
+### Desktop Productivity Suite for QR, Data, Encoding and Update Delivery
+## Desktop Workflow Platform for QR, Data, Encoding and Delivery
 
-- 二维码生成与批量处理
-- Excel / CSV / TXT 数据导入
-- 二维码导出与解析
-- 编码转换
-- JSON 格式化
-- GitHub Releases 自动更新
+一款面向生产效率场景打造的桌面工具应用，聚焦二维码工作流、结构化数据导入导出、编码转换、JSON 处理与桌面端自动更新闭环。
+<p>
+  一款面向高频桌面工作流打造的 <strong>旗舰级工具平台</strong>，围绕
+  <strong>二维码生成</strong>、
+  <strong>批量导入导出</strong>、
+  <strong>编码转换</strong>、
+  <strong>JSON 处理</strong> 与
+  <strong>GitHub 自动更新交付</strong>
+  构建统一操作台。
+</p>
 
 <p>
   <img alt="version" src="https://img.shields.io/badge/version-1.3.1-2563eb?style=for-the-badge">
   <img alt="platform" src="https://img.shields.io/badge/platform-Windows-111827?style=for-the-badge">
+  <img alt="platform" src="https://img.shields.io/badge/platform-Windows-0f172a?style=for-the-badge">
   <img alt="runtime" src="https://img.shields.io/badge/runtime-Electron-0f766e?style=for-the-badge">
   <img alt="frontend" src="https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-7c3aed?style=for-the-badge">
+  <img alt="updates" src="https://img.shields.io/badge/update-GitHub%20Releases-e11d48?style=for-the-badge">
+  <img alt="updater" src="https://img.shields.io/badge/update-GitHub%20Releases-e11d48?style=for-the-badge">
+</p>
+
+<p>
+  <strong>Toolbox</strong> 将高频桌面工具整合为统一工作台，强调
+  <strong>批量处理效率</strong>、
+  <strong>稳定交互体验</strong>、
+  <strong>模块化演进能力</strong> 与
+  <strong>自动更新交付链路</strong>。
+  <img alt="build" src="https://img.shields.io/badge/build-passing-16a34a?style=flat-square">
+  <img alt="release" src="https://img.shields.io/badge/release-NSIS%20%2B%20ZIP-1d4ed8?style=flat-square">
+  <img alt="state" src="https://img.shields.io/badge/state-Zustand-7c2d12?style=flat-square">
+  <img alt="import" src="https://img.shields.io/badge/import-CSV%20%2F%20Excel%20%2F%20TXT-5b21b6?style=flat-square">
+  <img alt="export" src="https://img.shields.io/badge/export-PDF%20%2F%20ZIP%20%2F%20Collage-0f766e?style=flat-square">
 </p>
 
 </div>
