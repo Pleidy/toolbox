@@ -360,8 +360,8 @@ function GenerateMode() {
     <div className="h-full flex flex-col gap-4">
       <div className="flex-1 min-h-0 flex gap-4">
         {!previewSettings.largeScreen && (
-        <div className="w-[460px] min-h-0 flex-shrink-0 flex flex-col gap-3 overflow-y-auto pr-1">
-          <Card className="border-border/70 shadow-none flex-1 min-h-0">
+        <div className="w-[460px] h-full flex-shrink-0 flex flex-col gap-3 overflow-y-auto pr-1">
+          <Card className="border-border/70 shadow-none h-[560px] flex-none flex flex-col">
             <CardHeader className="pb-3">
               <div className="space-y-1">
                 <CardTitle className="text-base">输入内容</CardTitle>
@@ -370,7 +370,7 @@ function GenerateMode() {
                 </CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="pt-0 pb-3 flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+            <CardContent className="pt-0 pb-3 flex flex-1 min-h-0 flex-col gap-3 overflow-hidden">
               <div className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/[0.16] px-3 py-2">
                 <div className="grid min-w-0 flex-1 grid-cols-3 gap-2">
                   <SummaryPill label="标签页" value={activeTabName} />
@@ -389,7 +389,7 @@ function GenerateMode() {
               )}
 
               <textarea
-                className="w-full h-[42vh] min-h-[280px] max-h-[460px] flex-none resize-none rounded-2xl border border-border/70 bg-muted/[0.18] p-3 text-sm leading-6 focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-full min-h-[220px] flex-1 resize-none rounded-2xl border border-border/70 bg-muted/[0.18] p-3 text-sm leading-6 focus:outline-none focus:ring-1 focus:ring-ring"
                 placeholder={`每行输入一个二维码内容。
 示例：
 https://example.com 订单A
@@ -431,25 +431,32 @@ https://example.com/order/2 订单B`}
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 gap-2">
-            <Button
-              size="sm"
-              className="h-10 w-full rounded-xl text-sm font-medium"
-              onClick={() => setExportDialogOpen(true)}
-              disabled={parsedLines.length === 0}
-            >
-              <Download className="mr-1.5 h-4 w-4" />
-              导出二维码
-            </Button>
+          <div className="grid grid-cols-1 gap-2 flex-none">
+            <div className="flex items-center justify-between rounded-xl border border-border/70 bg-background px-3 py-2">
+              <div>
+                <p className="text-[11px] font-medium text-foreground">导出二维码</p>
+                <p className="text-[11px] text-muted-foreground">导出格式和拆分规则在弹窗中配置。</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-lg border-border/70 px-3 text-xs"
+                onClick={() => setExportDialogOpen(true)}
+                disabled={parsedLines.length === 0}
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                导出
+              </Button>
+            </div>
             <div className="flex items-center justify-between rounded-xl border border-border/70 bg-background px-3 py-2">
               <div>
                 <p className="text-[11px] font-medium text-foreground">设置</p>
                 <p className="text-[11px] text-muted-foreground">预览参数和样式在弹窗中调整。</p>
               </div>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="h-8 rounded-lg px-2.5 text-xs text-muted-foreground"
+                className="h-8 rounded-lg border-border/70 px-3 text-xs"
                 onClick={() => setSettingsDialogOpen(true)}
               >
                 <Settings className="mr-1.5 h-3.5 w-3.5" />

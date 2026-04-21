@@ -215,7 +215,7 @@ export function QRCodeDecoder() {
       <canvas ref={canvasRef} className="hidden" />
 
       {/* 左侧：上传区域 */}
-      <div className="w-[400px] flex-shrink-0 flex flex-col gap-4">
+      <div className="w-[400px] min-h-0 flex-shrink-0 overflow-y-auto pr-1 flex flex-col gap-4">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
