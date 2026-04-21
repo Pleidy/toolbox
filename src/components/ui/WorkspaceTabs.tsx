@@ -96,7 +96,7 @@ export function WorkspaceTabs({
                         setEditingTabName('');
                       }
                     }}
-                    className="h-6 text-xs"
+                    className="h-6 border-border/70 bg-background text-xs text-foreground shadow-sm"
                     autoFocus
                   />
                 </div>

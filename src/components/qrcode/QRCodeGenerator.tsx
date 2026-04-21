@@ -371,12 +371,10 @@ function GenerateMode() {
               </div>
             </CardHeader>
             <CardContent className="pt-0 pb-3 flex flex-1 min-h-0 flex-col gap-3 overflow-hidden">
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/[0.16] px-3 py-2">
-                <div className="grid min-w-0 flex-1 grid-cols-3 gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 px-1">
                   <SummaryPill label="标签页" value={activeTabName} />
                   <SummaryPill label="识别数量" value={`${parsedLines.length}`} />
                   <SummaryPill label="已标记" value={`${usedCount}`} />
-                </div>
               </div>
 
               {!autoMode && (
@@ -558,7 +556,7 @@ https://example.com/order/2 订单B`}
                       <Input value={editingTabName} onChange={(event) => setEditingTabName(event.target.value)} onBlur={handleCommitRenameTab} onKeyDown={(event) => {
                         if (event.key === 'Enter') handleCommitRenameTab();
                         if (event.key === 'Escape') { setEditingTabId(null); setEditingTabName(''); }
-                      }} className="h-6 text-xs" autoFocus />
+                      }} className="h-6 border-border/70 bg-background text-xs text-foreground shadow-sm" autoFocus />
                     </div>
                   ) : (
                     <div className="flex items-center gap-1 px-2 py-1.5">
@@ -924,9 +922,9 @@ function ExportSettingsPanel({
 
 function SummaryPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-lg border border-border/70 bg-background px-3 py-2">
-      <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
-      <p className="truncate text-sm font-semibold text-foreground">{value}</p>
+    <div className="flex min-w-0 items-center gap-1.5">
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <span className="truncate text-[11px] font-medium text-foreground">{value}</span>
     </div>
   );
 }
